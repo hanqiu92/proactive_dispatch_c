@@ -33,8 +33,12 @@ static const int MAX_REROUTE_DIST_ALLOWED = 2;
 static const float MAX_REROUTE_TIME_ALLOWED = 5.0;
 static const int DEMAND_LIFE_PERIOD = 5;
 
+enum class Mode {
+    stay,taxi,pool,exit
+};
+
 struct Option{
-    int type; // 0 is private, 1 is pool, -1 is null
+    Mode type;
     int veh_id;
     int dist;
     float time;
@@ -45,24 +49,6 @@ struct Option{
     float adj_fare;
     float adj_cost;
     int insert;
-};
-
-struct RoutingOutput{
-    float time;
-    std::vector<int> route;
-    int dist;
-};
-
-struct Des{
-    int id;
-    int type; // 0 private on, 1 private off, 2 pool on, 3 pool off
-};
-
-struct VehicleState{
-    int loc;
-    int status; // 0 empty, 1 private, 2 pool
-    int curr_pax;
-    std::vector<Des> des_cell;
 };
 
 #endif /* common_hpp */

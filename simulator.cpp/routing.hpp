@@ -11,6 +11,12 @@
 
 #include "common.hpp"
 
+struct RoutingOutput{
+    float time;
+    std::vector<int> route;
+    int dist;
+};
+
 class Routing{
     int grid_size = 0;
     int max_value = 0;

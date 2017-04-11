@@ -11,6 +11,18 @@
 
 #include "routing.hpp"
 
+struct Des{
+    int id;
+    int type; // 0 private on, 1 private off, 2 pool on, 3 pool off
+};
+
+struct VehicleState{
+    int loc;
+    int status; // 0 empty, 1 private, 2 pool
+    int curr_pax;
+    std::vector<Des> des_cell;
+};
+
 class Vehicle{
     static int max_capacity;
     static float u_d_cost;

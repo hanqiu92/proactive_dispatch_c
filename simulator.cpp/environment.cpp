@@ -16,7 +16,7 @@ float Env::density_normalize_factor = 30.0;
 
 float Env::d1 = 1.0;
 float Env::d2 = 6.0;
-float Env::density_factor = 20.0;
+float Env::density_factor = 15.0;
 
 float Env::Greenshield_density_to_time(float density){
     float travel_time;
@@ -28,7 +28,7 @@ float Env::Greenshield_density_to_time(float density){
             travel_time = 30.0;
         }
         else{
-            travel_time = (d2 - d1) / d1 * density / (d2 - density);
+            travel_time = (d2 - d1) / (d2 - density);
             if (travel_time > 30.0){
                 travel_time = 30.0;
             }
@@ -39,7 +39,7 @@ float Env::Greenshield_density_to_time(float density){
 
 float Env::Greenshield_time_to_density(float time){
     float density;
-    density = (time * d2) / (time + (d2 - d1) / d1);
+    density = d2 - (d2 - d1) / time;
     return density;
 }
 
@@ -113,12 +113,18 @@ Env::Env(Env_Setting new_env_setting){
     demand = new_env_setting.demand;
     travel_time_total = new_env_setting.travel_time_total;
     travel_time = (*travel_time_total)[curr_time];
+    total_time = int(travel_time_total->size());
     fleet.reserve(fleet_size);
     emp_veh_location.assign(fleet_size,n_min);
     avi_veh_location.assign(fleet_size,n_min);
     veh_pool_capacity.assign(fleet_size,0);
     density.assign(grid_size * grid_size,0.0);
     sys_stat.reserve(travel_time_total->size());
+    usual_traffic_record.reserve(travel_time_total->size());
+    for (int i = 0; i < travel_time_total->size(); i++){
+        std::vector<float> temp(grid_size * grid_size,0.0);
+        usual_traffic_record.push_back(temp);
+    }
     
     // fleet initiation
     int loc;
@@ -165,6 +171,32 @@ Env::~Env(){
     travel_time_total = nullptr;
 }
 
+void Env::update_usual_traffic(int ori, int des){
+    if (dynamic_travel_time_flag > 0){
+        RoutingOutput estimate = routing_module->accurate(ori, des);
+        std::vector<int> est_route = estimate.route;
+        int accu_time = curr_time;
+        int temp_time,temp_loc,temp_loc_near;
+        for (int i = 0; i < est_route.size(); i++){
+            temp_loc = est_route[i];
+            temp_time = int(roundf((*travel_time_total)[curr_time][temp_loc]));
+            for (int j = 0; j < temp_time; j++){
+                if (accu_time+j < total_time){
+                    for (int n_col = -1; n_col <= 1; n_col++){
+                        for (int n_row = -1; n_row <= 1; n_row++){
+                            temp_loc_near = temp_loc + grid_size * n_col + n_row;
+                            if ((temp_loc_near >= 0) and (temp_loc_near < grid_size * grid_size)){
+                                usual_traffic_record[accu_time+j][temp_loc_near] += 1.0 / 9.0;
+                            }
+                        }
+                    }
+                }
+            }
+            accu_time += temp_time;
+        }
+    }
+}
+
 void Env::next_step(){
     std::vector<int> new_state;
     int loc_temp;
@@ -187,7 +219,7 @@ void Env::next_step(){
                 for (int n_row = -1; n_row <= 1; n_row++){
                     loc_temp = new_state[0] + grid_size * n_col + n_row;
                     if ((loc_temp >= 0) and (loc_temp < grid_size * grid_size)){
-                        density[loc_temp] += 1.0 / 9.0 / density_factor;
+                        density[loc_temp] += 1.0 / 9.0;
                     }
                 }
             }
@@ -205,9 +237,19 @@ void Env::next_step(){
     
     travel_time = (*travel_time_total)[curr_time];
     if (dynamic_travel_time_flag == 1){
+        float temp_d_1 = 0;
+        float temp_d_2 = 0;
         for (int i = 0; i < grid_size * grid_size; i++){
-            temp_density = (1 - dynamic_travel_time_rate) * Greenshield_time_to_density(travel_time[i]) + dynamic_travel_time_rate * density_normalize_factor * density[i];
+            temp_density = (1 - dynamic_travel_time_rate) * Greenshield_time_to_density(travel_time[i]) + dynamic_travel_time_rate * density_normalize_factor * (density[i] + usual_traffic_record[curr_time][i]) / density_factor;
+            temp_d_1 += density[i];
+            temp_d_2 += usual_traffic_record[curr_time][i];
             travel_time[i] = Greenshield_density_to_time(temp_density);
+            last_sys_travel_time += travel_time[i] * temp_density;
+            last_sys_density += temp_density;
+        }
+    }else{
+        for (int i = 0; i < grid_size * grid_size; i++){
+            temp_density = Greenshield_time_to_density(travel_time[i]);
             last_sys_travel_time += travel_time[i] * temp_density;
             last_sys_density += temp_density;
         }

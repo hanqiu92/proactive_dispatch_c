@@ -113,14 +113,11 @@ void Agent::next_step(){
                         new_hist_demand.push_back({ori,des,life_time+1});
                     }
                     else{
-                        pax_stat.push_back({curr_time - life_time,curr_time,life_time,-1,0,0,0,0,0});
+                        process_demand(ori, des, curr_time, life_time+1);
                     }
                     break;
                 case 1:
                     match_size += 1;
-                    break;
-                case -1:
-                    pax_stat.push_back({curr_time - life_time,curr_time,life_time,-2,0,0,0,0,0});
                     break;
                 default:
                     break;
@@ -142,9 +139,6 @@ void Agent::next_step(){
                     break;
                 case 1:
                     match_size += 1;
-                    break;
-                case -1:
-                    pax_stat.push_back({curr_time,curr_time,0,-2,0,0,0,0,0});
                     break;
                 default:
                     break;
@@ -184,53 +178,76 @@ int Agent::process_demand(int ori,int des,int curr_time,int delay_time){
     std::vector<Option> assortment,opt_assortment;
     int private_flag = 0;
     int pool_flag = 0;
-    //base on different purpose, add time counter
-    if (detail_output_flag){
-        //generate the assortment
+    //final out; only need two possible option
+    if (delay_time > DEMAND_LIFE_PERIOD){
         assortment = gene_assort(ori, des);
-        freq_counter[0] += 1;
-        if (!assortment.empty()){
-            //now optimize the assortment
-            opt_assortment = (controller->*(controller->optimize))(assortment, ori, des);
-            //opt_assortment = assortment;
-            freq_counter[1] += 1;
-            if (!opt_assortment.empty()){
-                //calculate property of the opt assortment
-                for (int i = 0; i < opt_assortment.size(); i++){
-                    if (opt_assortment[i].type == 0) private_flag = 1;
-                    if (opt_assortment[i].type == 1) pool_flag = 1;
-                }
-                if ((private_flag == 1) and (pool_flag == 1)) assort_type_stat.both += 1;
-                if ((private_flag == 1) and (pool_flag == 0)) assort_type_stat.pri += 1;
-                if ((private_flag == 0) and (pool_flag == 1)) assort_type_stat.pool += 1;
-                //call the external model to decide the selection
-                int choice_ind = model(opt_assortment,int(opt_assortment.size()));
-                freq_counter[2] += 1;
-                if (choice_ind >= 0){
-                    update(ori,des,opt_assortment[choice_ind],curr_time,delay_time);
-                    freq_counter[3] += 1;
-                    return 1;
-                }
-                else{
+        opt_assortment.push_back(assortment[0]);
+        //call the external model to decide the selection
+        int choice_ind = model(opt_assortment,int(opt_assortment.size()));
+        if (choice_ind >= 0){
+            pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::stay,0,0,0,0,0});
+            env->update_usual_traffic(ori,des);
+        }else{
+            pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::exit,0,0,0,0,0});
+        }
+    }else{
+        //base on different purpose, add time counter
+        if (detail_output_flag){
+            //generate the assortment
+            assortment = gene_assort(ori, des);
+            freq_counter[0] += 1;
+            if (int(assortment.size()) > 1){
+                //now optimize the assortment
+                opt_assortment = (controller->*(controller->optimize))(assortment, ori, des);
+                //opt_assortment = assortment;
+                freq_counter[1] += 1;
+                if (!opt_assortment.empty()){
+                    //calculate property of the opt assortment
+                    for (int i = 0; i < opt_assortment.size(); i++){
+                        if (opt_assortment[i].type == Mode::taxi) private_flag = 1;
+                        if (opt_assortment[i].type == Mode::pool) pool_flag = 1;
+                    }
+                    if ((private_flag == 1) and (pool_flag == 1)) assort_type_stat.both += 1;
+                    if ((private_flag == 1) and (pool_flag == 0)) assort_type_stat.pri += 1;
+                    if ((private_flag == 0) and (pool_flag == 1)) assort_type_stat.pool += 1;
+                    //call the external model to decide the selection
+                    int choice_ind = model(opt_assortment,int(opt_assortment.size()));
+                    freq_counter[2] += 1;
+                    if (choice_ind >= 0){
+                        if (opt_assortment[choice_ind].type == Mode::stay){
+                            pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::stay,0,0,0,0,0});
+                            env->update_usual_traffic(ori,des);
+                            return -1;
+                        }else{
+                            update(ori,des,opt_assortment[choice_ind],curr_time,delay_time);
+                            freq_counter[3] += 1;
+                            return 1;
+                        }
+                    }
+                    pax_stat.push_back({curr_time - delay_time,curr_time,delay_time,Mode::exit,0,0,0,0,0});
                     return -1;
                 }
             }
-        }
-    }else{
-        //generate the assortment
-        assortment = gene_assort(ori, des);
-        if (!assortment.empty()){
-            //now optimize the assortment
-            opt_assortment = (controller->*(controller->optimize))(assortment, ori, des);
-            //opt_assortment = assortment;
-            if (!opt_assortment.empty()){
-                //call the external model to decide the selection
-                int choice_ind = model(opt_assortment,int(opt_assortment.size()));
-                if (choice_ind >= 0){
-                    update(ori,des,opt_assortment[choice_ind],curr_time,delay_time);
-                    return 1;
-                }
-                else{
+        }else{
+            //generate the assortment
+            assortment = gene_assort(ori, des);
+            if (int(assortment.size()) > 1){
+                //now optimize the assortment
+                opt_assortment = (controller->*(controller->optimize))(assortment, ori, des);
+                if (!opt_assortment.empty()){
+                    //call the external model to decide the selection
+                    int choice_ind = model(opt_assortment,int(opt_assortment.size()));
+                    if (choice_ind >= 0){
+                        if (opt_assortment[choice_ind].type == Mode::stay){
+                            pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::stay,0,0,0,0,0});
+                            env->update_usual_traffic(ori,des);
+                            return -1;
+                        }else{
+                            update(ori,des,opt_assortment[choice_ind],curr_time,delay_time);
+                            return 1;
+                        }
+                    }
+                    pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::exit,0,0,0,0,0});
                     return -1;
                 }
             }
@@ -285,6 +302,10 @@ std::vector<Option> Agent::gene_assort(int ori,int des){
     float pri_adj_cost,pool_adj_cost;
     int pool_dist;
     float pool_time;
+    
+    // first include stay option
+    RoutingOutput stay_estimate = routing_module->estimate(ori, des);
+    assortment.push_back({Mode::stay,-1,stay_estimate.dist,stay_estimate.time,0,0,0,0,0,0,-1});
     //*****************************************************
     //process the vehicle list to find the best private/pool option
     if (!emp_veh_list.empty()){
@@ -313,11 +334,11 @@ std::vector<Option> Agent::gene_assort(int ori,int des){
             pri_on_cost = cost_cal(new_estimate_pre.dist, new_estimate_pre.time, -1);
             pool_on_cost = cost_cal(new_estimate_pre.dist, new_estimate_pre.time, -1);
             
-            assortment.push_back({0,best_veh,new_estimate.dist,new_estimate.time,
+            assortment.push_back({Mode::taxi,best_veh,new_estimate.dist,new_estimate.time,
                 new_estimate_pre.dist,new_estimate_pre.time,
                 pri_fare,pri_cost + pri_on_cost + pri_adj_cost,0,pri_adj_cost,-1});
             
-            assortment.push_back({1,best_veh,new_estimate.dist,new_estimate.time,
+            assortment.push_back({Mode::pool,best_veh,new_estimate.dist,new_estimate.time,
                 new_estimate_pre.dist,new_estimate_pre.time,
                 pool_fare,pool_cost + pool_on_cost + pri_adj_cost,0,pool_adj_cost,0});
         }
@@ -379,7 +400,7 @@ std::vector<Option> Agent::gene_assort(int ori,int des){
                                 pool_time = new_estimate.time;
                                 pool_fare = fare_cal(pool_dist, pool_time, 1);
                                 pool_cost = cost_cal(std::abs(new_estimate.dist + estimate_delta.dist - estimate_ori.dist), std::abs(new_estimate.time + estimate_delta.time - estimate_ori.time), 1);
-                                assortment.push_back({1,*it,pool_dist,pool_time,
+                                assortment.push_back({Mode::pool,*it,pool_dist,pool_time,
                                     new_estimate_pre.dist,new_estimate_pre.time,
                                     pool_fare,pool_cost + pool_on_cost + pool_adj_cost,0,pool_adj_cost,1});
                             }else{
@@ -388,7 +409,7 @@ std::vector<Option> Agent::gene_assort(int ori,int des){
                                 pool_time = estimate_delta.time + estimate_ori.time;
                                 pool_fare = fare_cal(pool_dist,pool_time, 1);
                                 pool_cost = cost_cal(estimate_delta.dist, estimate_delta.time, 1);
-                                assortment.push_back({1,*it,pool_dist,pool_time,
+                                assortment.push_back({Mode::pool,*it,pool_dist,pool_time,
                                     new_estimate_pre.dist,new_estimate_pre.time,
                                     pool_fare,pool_cost + pool_on_cost + pool_adj_cost,0,pool_adj_cost,0});
                             }
@@ -464,7 +485,7 @@ std::vector<Option> Agent::gene_assort(int ori,int des){
                                     pool_time = new_estimate.time;
                                     pool_fare = fare_cal(pool_dist, pool_time, 1);
                                     pool_cost = cost_cal(std::abs(new_estimate.dist + estimate_delta.dist - estimate_ori.dist), std::abs(new_estimate.time + estimate_delta.time - estimate_ori.time), 1);
-                                    assortment.push_back({1,*it,pool_dist,pool_time,
+                                    assortment.push_back({Mode::pool,*it,pool_dist,pool_time,
                                         new_estimate_pre.dist,new_estimate_pre.time,
                                         pool_fare,pool_cost + pool_on_cost + pool_adj_cost,0,pool_adj_cost,2});
                                 }else{
@@ -473,7 +494,7 @@ std::vector<Option> Agent::gene_assort(int ori,int des){
                                     pool_time = estimate_ori.time + estimate_delta.time;
                                     pool_fare = fare_cal(pool_dist,pool_time, 1);
                                     pool_cost = cost_cal(estimate_delta.dist, estimate_delta.time, 1);
-                                    assortment.push_back({1,*it,pool_dist,pool_time,
+                                    assortment.push_back({Mode::pool,*it,pool_dist,pool_time,
                                         new_estimate_pre.dist,new_estimate_pre.time,
                                         pool_fare,pool_cost + pool_on_cost + pool_adj_cost,0,pool_adj_cost,1});
                                 }
@@ -495,7 +516,7 @@ std::vector<Option> Agent::gene_assort(int ori,int des){
                                     pool_time = estimate_ori_1.time + estimate_delta_1.time;
                                     pool_fare = fare_cal(pool_dist,pool_time, 1);
                                     pool_cost = cost_cal(std::abs(estimate_delta_1.dist + estimate_delta_2.dist - estimate_ori_2.dist), std::abs(estimate_delta_1.time + estimate_delta_2.time - estimate_ori_2.time), 1);
-                                    assortment.push_back({1,*it,pool_dist,pool_time,
+                                    assortment.push_back({Mode::pool,*it,pool_dist,pool_time,
                                         new_estimate_pre.dist,new_estimate_pre.time,
                                         pool_fare,pool_cost + pool_on_cost + pool_adj_cost,0,pool_adj_cost,1});
                                 }else{
@@ -504,7 +525,7 @@ std::vector<Option> Agent::gene_assort(int ori,int des){
                                     pool_time = estimate_ori_1.time + estimate_ori_2.time + estimate_delta_2.time;
                                     pool_fare = fare_cal(pool_dist,pool_time, 1);
                                     pool_cost = cost_cal(estimate_delta_2.dist, estimate_delta_2.time, 1);
-                                    assortment.push_back({1,*it,pool_dist,pool_time,
+                                    assortment.push_back({Mode::pool,*it,pool_dist,pool_time,
                                         new_estimate_pre.dist,new_estimate_pre.time,
                                         pool_fare,pool_cost + pool_on_cost + pool_adj_cost,0,pool_adj_cost,0});
                                 }
@@ -525,7 +546,7 @@ std::vector<Option> Agent::gene_assort(int ori,int des){
                                 pool_time = pool_time_ori + estimate_delta.time;
                                 pool_fare = fare_cal(pool_dist,pool_time, 1);
                                 pool_cost = cost_cal(estimate_delta.dist, estimate_delta.time, 1);
-                                assortment.push_back({1,*it,pool_dist,pool_time,
+                                assortment.push_back({Mode::pool,*it,pool_dist,pool_time,
                                     new_estimate_pre.dist,new_estimate_pre.time,
                                     pool_fare,pool_cost + pool_on_cost + pool_adj_cost,0,pool_adj_cost,0});
                             }
@@ -543,7 +564,7 @@ std::vector<Option> Agent::gene_assort(int ori,int des){
 void Agent::update(int ori,int des,Option choice, int curr_time, int delay_time){
     Vehicle *this_veh = fleet[choice.veh_id];
     std::vector<Des> new_des;
-    if (choice.type == 0){
+    if (choice.type == Mode::taxi){
         new_des = {{ori, 0},
             {des, 1}};
     }else{
@@ -564,14 +585,18 @@ void Agent::update(int ori,int des,Option choice, int curr_time, int delay_time)
     }
     
     int pre_status = this_veh->get_status();
-    this_veh->update(choice.type+1, new_des, curr_time, choice.fare + choice.adj_fare,choice.adj_cost);
+    if (choice.type == Mode::taxi){
+        this_veh->update(1, new_des, curr_time, choice.fare + choice.adj_fare,choice.adj_cost);
+    }else{
+        this_veh->update(2, new_des, curr_time, choice.fare + choice.adj_fare,choice.adj_cost);
+    }
     
     //update availability map
     int curr_loc = this_veh->get_loc();
     if (pre_status == 0){
         //from empty to private or pool
         env->set_emp_veh_location_by_row(choice.veh_id, -1);
-        if (choice.type == 1){
+        if (choice.type == Mode::pool){
             //pool; update avi location
             env->set_avi_veh_location_by_row(choice.veh_id, curr_loc);
         }else{

@@ -12,14 +12,14 @@
 
 typedef std::vector<float> stdvec;
 
-int train(Algorithm algo, int congestion_level, float demand_factor, float supply_factor, float p_rate, float tax_congest, float tax_demand, int debug_flag){
+int train(Algorithm algo, int congestion_level, float demand_factor, float supply_factor, float p_rate, float tax_congest, float tax_demand, int dynamic_time_flag, int debug_flag){
     if ((algo == Algorithm::assort_adjust) or (algo == Algorithm::pricing_adjust)){
         // load simulation input
         int grid_size = 10;
         std::uniform_int_distribution<int> irand(0,grid_size * grid_size-1);
         int total_time = 1440;
         float congestion_factor;
-        int dynamic_travel_time_flag = 1;
+        int dynamic_travel_time_flag = dynamic_time_flag;
         float dynamic_travel_time_rate = demand_factor / 30.0;
         int fleet_size = 200 * supply_factor;
         std::vector< std::vector<float> > ori_dist = load("/Users/hanqiu/proactive_dispatch_c/data/o_d_c.csv",total_time,grid_size);
@@ -74,10 +74,6 @@ int train(Algorithm algo, int congestion_level, float demand_factor, float suppl
             default:
                 save_path = "/Users/hanqiu/proactive_dispatch_c/result/assort_opt_param.csv";
                 break;
-        }
-        
-        if (debug_flag > 0){
-            std::cout<<"Assortment training process: \n";
         }
         
         // define basic parameters
@@ -209,9 +205,9 @@ int train(Algorithm algo, int congestion_level, float demand_factor, float suppl
     return 0;
 }
 
-int get_opt_param(int algo_low, int algo_upp, int congestion_low, int congestion_upp, int demand_low, int demand_upp, int supply_low, int supply_upp, int p_rate_low, int p_rate_upp, int tax_low, int tax_upp, int debug_flag){
+int get_opt_param(int algo_low, int algo_upp, int congestion_low, int congestion_upp, int demand_low, int demand_upp, int supply_low, int supply_upp, int p_rate_low, int p_rate_upp, int tax_low, int tax_upp, int dynamic_time_flag, int debug_flag){
     std::vector<float> supply_factor_range = {0.25,0.5,1.0,1.5};
-    std::vector<float> demand_factor_range = {1.0,3.0,6.0};
+    std::vector<float> demand_factor_range = {30.0,3.0,6.0};
     std::vector<float> p_rate_range = {0.5,0.6,0.7,0.8};
     
     Algorithm algo = Algorithm::full;
@@ -224,12 +220,12 @@ int get_opt_param(int algo_low, int algo_upp, int congestion_low, int congestion
     
     for (int i_algo = algo_low; i_algo <= algo_upp; i_algo++){
         if (i_algo == 0){
-            algo = Algorithm::assort_adjust;
-            std::cout<<"Get assortment params: \n";
-        }
-        if (i_algo == 1){
             algo = Algorithm::pricing_adjust;
             std::cout<<"Get pricing params: \n";
+        }
+        if (i_algo == 1){
+            algo = Algorithm::assort_adjust;
+            std::cout<<"Get assortment params: \n";
         }
         for (int i_congest = congestion_low; i_congest <= congestion_upp; i_congest++){
             congest_level = i_congest + 1;
@@ -256,7 +252,7 @@ int get_opt_param(int algo_low, int algo_upp, int congestion_low, int congestion
                             }
                             
                             std::cout<<"Scenario with "<<congest_level<<","<<supply_factor<<","<<demand_factor<<","<<p_rate<<","<<tax_congest<<","<<tax_demand<<": ";
-                            train(algo,congest_level,demand_factor,supply_factor,p_rate,tax_congest,tax_demand,debug_flag);
+                            train(algo,congest_level,demand_factor,supply_factor,p_rate,tax_congest,tax_demand,dynamic_time_flag,debug_flag);
                             std::cout<<"Done. \n";
                         }
                     }

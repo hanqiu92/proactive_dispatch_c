@@ -16,7 +16,7 @@ struct pax_record{
     int request_time;
     int curr_time;
     int delay_time;
-    int service_type; // 0 private, 1 pool, -1 null, -2 reject
+    Mode service_type;
     float fare;
     float dist;
     float time;

@@ -34,11 +34,13 @@ class Env{
     static float d1,d2;
     static float density_factor;
     int fleet_size;
+    int total_time;
     int curr_time;
     int relative_curr_time;
     int n_min;
     std::vector< std::vector< std::pair<int,int> > > *demand;
     std::vector< std::vector<float> > *travel_time_total;
+    std::vector< std::vector<float> > usual_traffic_record;
     std::vector<Vehicle *> fleet;
     std::vector<float> travel_time;
     std::vector<float> density;
@@ -66,6 +68,7 @@ public:
     Env(Env_Setting new_env_setting);
     ~Env();
     void next_step();
+    void update_usual_traffic(int ori, int des);
     float Greenshield_density_to_time(float density);
     float Greenshield_time_to_density(float time);
     

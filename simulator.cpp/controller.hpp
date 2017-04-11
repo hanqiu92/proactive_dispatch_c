@@ -12,7 +12,7 @@
 #include "environment.hpp"
 
 enum class Algorithm {
-    full, random, single, pool, assort, pricing, assort_adjust, pricing_adjust, assort_adjust_rand, assort_adjust_post_rand,
+    none, full, random, single, pool, assort, pricing, assort_adjust, pricing_adjust, assort_adjust_rand, assort_adjust_post_rand,
     pricing_adjust_rand, pricing_adjust_post_rand, assort_model_free, pricing_model_free
 };
 
@@ -40,7 +40,7 @@ public:
     float get_U(Option assort);
     float get_R(Option assort);
     float get_U0();
-    float get_k(int assort_type);
+    float get_k(Mode assort_type);
 };
 
 
@@ -93,6 +93,7 @@ public:
     void update_training_data_test(Option choice);
     
     // control algorithms
+    std::vector<Option> none(std::vector<Option> assortment, int ori, int des);
     std::vector<Option> full(std::vector<Option> assortment, int ori, int des);
     std::vector<Option> single(std::vector<Option> assortment, int ori, int des);
     std::vector<Option> pool(std::vector<Option> assortment, int ori, int des);

@@ -31,12 +31,18 @@ InnerModel::InnerModel(){
 }
 
 float InnerModel::get_U(Option assort){
-    if (assort.type == 1){
-        return (ASC_pool - b_dist_pool * (assort.dist - 5) -
-                b_time_pool * (assort.time - assort.dist)) * d;
-    }else{
-        return (ASC_private - b_dist_private * (assort.dist - 5) -
-                b_time_private * (assort.time - assort.dist)) * d;
+    switch (assort.type) {
+        case Mode::pool:
+            return (ASC_pool - b_dist_pool * (assort.dist - 5) -
+                    b_time_pool * (assort.time - assort.dist)) * d;
+            break;
+        case Mode::taxi:
+            return (ASC_private - b_dist_private * (assort.dist - 5) -
+                    b_time_private * (assort.time - assort.dist)) * d;
+            break;
+        default:
+            return 0;
+            break;
     }
 }
 
@@ -48,8 +54,8 @@ float InnerModel::get_U0(){
     return U0;
 }
 
-float InnerModel::get_k(int assort_type){
-    if (assort_type == 0) return b_fare_private;
+float InnerModel::get_k(Mode assort_type){
+    if (assort_type == Mode::taxi) return b_fare_private;
     else return b_fare_pool;
 }
 
@@ -97,6 +103,10 @@ Controller::Controller(int status){
     }
     if (status == 0){
         switch (algorithm) {
+            case Algorithm::none:
+                optimize = &Controller::none;
+                update_training_data = &Controller::update_training_data_test;
+                break;
             case Algorithm::full:
                 optimize = &Controller::full;
                 update_training_data = &Controller::update_training_data_test;
@@ -161,6 +171,9 @@ Controller::Controller(int status){
     }else{
         update_training_data = &Controller::update_training_data_test;
         switch (algorithm) {
+            case Algorithm::none:
+                optimize = &Controller::none;
+                break;
             case Algorithm::full:
                 optimize = &Controller::full;
                 break;
@@ -273,7 +286,7 @@ std::vector<float> Controller::get_local_state(int ori, int des){
     return {1, d_out[ori], d_in[des], a_pri[ori], 0, 0, 0, 0, 0, 0, 0, 0, 1, d_out[ori], d_in[des], a_pool[ori]};
 }
 std::vector<float> Controller::get_assort_state(Option assort){
-    if (assort.type == 0) return {assort.fare, assort.cost, float(assort.dist), float(assort.time), 0, 0, 0, 0};
+    if (assort.type == Mode::taxi) return {assort.fare, assort.cost, float(assort.dist), float(assort.time), 0, 0, 0, 0};
     else return {0, 0, 0, 0,assort.fare, assort.cost, float(assort.dist), float(assort.time)};
 }
 
@@ -352,7 +365,7 @@ void Controller::update_training_data_train(Option choice){
 std::vector<float> Controller::get_assort_revenue(std::vector<Option> assortment, int size){
     std::vector<float> R(size,0.0);
     for (int i = 0; i < size; i++){
-        R[i] = in_model->get_R(assortment[i]);
+        R[i] = in_model->get_R(assortment[i+1]);
     }
     return R;
 }
@@ -360,8 +373,8 @@ std::vector<float> Controller::get_assort_revenue(std::vector<Option> assortment
 std::vector<float> Controller::get_assort_revenue_adjust(std::vector<Option> assortment, int size, std::vector<float> control_value){
     std::vector<float> R(size,0.0);
     for (int i = 0; i < size; i++){
-        R[i] = in_model->get_R(assortment[i]);
-        if (assortment[i].type == 0) R[i] += control_value[0];
+        R[i] = in_model->get_R(assortment[i+1]);
+        if (assortment[i+1].type == Mode::taxi) R[i] += control_value[0];
         else R[i] += control_value[1];
     }
     return R;
@@ -370,23 +383,36 @@ std::vector<float> Controller::get_assort_revenue_adjust(std::vector<Option> ass
 std::vector<float> Controller::get_assort_preference(std::vector<Option> assortment, int size){
     std::vector<float> U(size+1,0.0);
     std::vector<float> V(size+1,0.0);
+    U[size] = in_model->get_U(assortment[0]);
     for (int i = 0; i < size; i++){
-        U[i] = in_model->get_U(assortment[i]);
+        U[i] = in_model->get_U(assortment[i+1]);
     }
     float max_U = *std::max_element(U.begin(), U.end());
-    for (int i = 0; i < size; i++){
+    for (int i = 0; i < size+1; i++){
         V[i] = exp(U[i] - max_U);
     }
-    V[size] = exp(-max_U);
+    V[size] += exp(- max_U);
     return V;
 }
 
 std::vector<float> Controller::get_assort_elasticity(std::vector<Option> assortment, int size){
     std::vector<float> k(size,1.0);
     for (int i = 0; i < size; i++){
-        k[i] = 1.0 / in_model->get_k(assortment[i].type);
+        k[i] = 1.0 / in_model->get_k(assortment[i+1].type);
     }
     return k;
+}
+
+std::vector<Option> Controller::none(std::vector<Option> assortment, int ori, int des){
+    int size = int(assortment.size());
+    std::vector<Option> opt_assortment;
+    opt_assortment.reserve(size);
+    for (int i = 0; i < size; i++){
+        if (assortment[i].type == Mode::stay){
+            opt_assortment.push_back(assortment[i]);
+        }
+    }
+    return opt_assortment;
 }
 
 std::vector<Option> Controller::full(std::vector<Option> assortment, int ori, int des){
@@ -398,7 +424,7 @@ std::vector<Option> Controller::single(std::vector<Option> assortment, int ori, 
     std::vector<Option> opt_assortment;
     opt_assortment.reserve(size);
     for (int i = 0; i < size; i++){
-        if (assortment[i].type == 0){
+        if ((assortment[i].type == Mode::taxi) or (assortment[i].type == Mode::stay)){
             opt_assortment.push_back(assortment[i]);
         }
     }
@@ -410,7 +436,7 @@ std::vector<Option> Controller::pool(std::vector<Option> assortment, int ori, in
     std::vector<Option> opt_assortment;
     opt_assortment.reserve(size);
     for (int i = 0; i < size; i++){
-        if (assortment[i].type == 1){
+        if ((assortment[i].type == Mode::pool) or (assortment[i].type == Mode::stay)){
             opt_assortment.push_back(assortment[i]);
         }
     }
@@ -422,7 +448,7 @@ std::vector<Option> Controller::random(std::vector<Option> assortment, int ori, 
     std::vector<Option> opt_assortment;
     opt_assortment.reserve(size);
     for (int i = 0; i < size; i++){
-        if (urand(mt) < 0.5){
+        if ((urand(mt) < 0.5) or (assortment[i].type == Mode::stay)){
             opt_assortment.push_back(assortment[i]);
         }
     }
@@ -430,35 +456,37 @@ std::vector<Option> Controller::random(std::vector<Option> assortment, int ori, 
 }
 
 std::vector<Option> Controller::assort(std::vector<Option> assortment, int ori, int des){
-    int size = int(assortment.size());
+    int size = int(assortment.size()) - 1;
     std::vector<Option> opt_assortment;
-    opt_assortment.reserve(size);
+    opt_assortment.reserve(size + 1);
     std::vector<float> R = get_assort_revenue(assortment, size);
     std::vector<float> V = get_assort_preference(assortment, size);
     float V0 = V.back();
     V.pop_back();
     float z = get_assort_opt_z(size, V, R, V0);
+    opt_assortment.push_back(assortment[0]);
     for (int i = 0; i < size; i++){
         if (R[i] >= z){
-            opt_assortment.push_back(assortment[i]);
+            opt_assortment.push_back(assortment[i+1]);
         }
     }
     return opt_assortment;
 }
 
 std::vector<Option> Controller::pricing(std::vector<Option> assortment, int ori, int des){
-    int size = int(assortment.size());
+    int size = int(assortment.size()) - 1;
     std::vector<Option> opt_assortment;
-    opt_assortment.reserve(size);
+    opt_assortment.reserve(size + 1);
     std::vector<float> R = get_assort_revenue(assortment, size);
     std::vector<float> V = get_assort_preference(assortment, size);
     float V0 = V.back();
     V.pop_back();
     std::vector<float> k = get_assort_elasticity(assortment, size);
     float z = get_pricing_opt_z(size, V, R, k, V0);
+    opt_assortment.push_back(assortment[0]);
     Option temp;
     for (int i = 0; i < size; i++){
-        temp = assortment[i];
+        temp = assortment[i+1];
         temp.adj_fare = std::max(std::min(z - R[i] + k[i], MAX_PRICE_SURGE), -MAX_PRICE_SURGE);
         opt_assortment.push_back(temp);
     }
@@ -466,9 +494,9 @@ std::vector<Option> Controller::pricing(std::vector<Option> assortment, int ori,
 }
 
 std::vector<Option> Controller::assort_adjust(std::vector<Option> assortment, int ori, int des){
-    int size = int(assortment.size());
+    int size = int(assortment.size()) - 1;
     std::vector<Option> opt_assortment;
-    opt_assortment.reserve(size);
+    opt_assortment.reserve(size + 1);
     std::vector<float> control_value(2,0.0);
     std::vector<float> theta = params.theta;
     std::vector<float> local_state = get_local_state(ori, des);
@@ -482,18 +510,19 @@ std::vector<Option> Controller::assort_adjust(std::vector<Option> assortment, in
     float V0 = V.back();
     V.pop_back();
     float z = get_assort_opt_z(size, V, R, V0);
+    opt_assortment.push_back(assortment[0]);
     for (int i = 0; i < size; i++){
         if (R[i] >= z){
-            opt_assortment.push_back(assortment[i]);
+            opt_assortment.push_back(assortment[i+1]);
         }
     }
     return opt_assortment;
 }
 
 std::vector<Option> Controller::assort_model_free(std::vector<Option> assortment, int ori, int des){
-    int size = int(assortment.size());
+    int size = int(assortment.size()) - 1;
     std::vector<Option> opt_assortment;
-    opt_assortment.reserve(size);
+    opt_assortment.reserve(size+1);
     std::vector<float> control_value(2,0.0);
     std::vector<float> theta = params.theta;
     std::vector<float> mu = params.mu;
@@ -506,25 +535,26 @@ std::vector<Option> Controller::assort_model_free(std::vector<Option> assortment
         control_value[0] += theta[i] * local_state[i];
         control_value[1] += theta[i] * local_state[i+param_size];
     }
+    opt_assortment.push_back(assortment[0]);
     for (int i = 0; i < size; i++){
-        assort_state = get_assort_state(assortment[i]);
+        assort_state = get_assort_state(assortment[i+1]);
         temp = 0;
         for (int j = 0; j < param_size; j++){
             temp += mu[j] * assort_state[j];
         }
-        if (assortment[i].type == 0) prob = 1.0 / (1.0 + exp(control_value[1] + temp));
+        if (assortment[i].type == Mode::taxi) prob = 1.0 / (1.0 + exp(control_value[1] + temp));
         else prob = 1.0 / (1.0 + exp(control_value[0] + temp));
         if (urand(mt) < prob){
-            opt_assortment.push_back(assortment[i]);
+            opt_assortment.push_back(assortment[i+1]);
         }
     }
     return opt_assortment;
 }
 
 std::vector<Option> Controller::pricing_adjust(std::vector<Option> assortment, int ori, int des){
-    int size = int(assortment.size());
+    int size = int(assortment.size()) - 1;
     std::vector<Option> opt_assortment;
-    opt_assortment.reserve(size);
+    opt_assortment.reserve(size+1);
     std::vector<float> control_value(2,0.0);
     std::vector<float> theta = params.theta;
     std::vector<float> local_state = get_local_state(ori, des);
@@ -539,9 +569,10 @@ std::vector<Option> Controller::pricing_adjust(std::vector<Option> assortment, i
     V.pop_back();
     std::vector<float> k = get_assort_elasticity(assortment, size);
     float z = get_pricing_opt_z(size, V, R, k, V0);
+    opt_assortment.push_back(assortment[0]);
     Option temp;
     for (int i = 0; i < size; i++){
-        temp = assortment[i];
+        temp = assortment[i+1];
         temp.adj_fare = std::max(std::min(z - R[i] + k[i], MAX_PRICE_SURGE), -MAX_PRICE_SURGE);
         opt_assortment.push_back(temp);
     }
@@ -549,9 +580,9 @@ std::vector<Option> Controller::pricing_adjust(std::vector<Option> assortment, i
 }
 
 std::vector<Option> Controller::pricing_model_free(std::vector<Option> assortment, int ori, int des){
-    int size = int(assortment.size());
+    int size = int(assortment.size())-1;
     std::vector<Option> opt_assortment;
-    opt_assortment.reserve(size);
+    opt_assortment.reserve(size+1);
     std::vector<float> control_value(2,0.0);
     std::vector<float> control_value_std(2,0.0);
     std::vector<float> theta = params.theta;
@@ -573,8 +604,9 @@ std::vector<Option> Controller::pricing_model_free(std::vector<Option> assortmen
     Option assort;
     float sample;
     
+    opt_assortment.push_back(assortment[0]);
     for (int i = 0; i < size; i++){
-        assort = assortment[i];
+        assort = assortment[i+1];
         assort_state = get_assort_state(assort);
         sample = nrand(mt);
         temp = 0;
@@ -583,7 +615,7 @@ std::vector<Option> Controller::pricing_model_free(std::vector<Option> assortmen
             temp += mu[j] * assort_state[j];
             temp_std += kappa[j] * assort_state[j];
         }
-        if (assortment[i].type == 0) p = control_value[0] + temp + exp(control_value_std[0] + temp_std) * sample;
+        if (assortment[i].type == Mode::taxi) p = control_value[0] + temp + exp(control_value_std[0] + temp_std) * sample;
         else p = control_value[1] + temp + exp(control_value_std[1] + temp_std) * sample;
         p = std::max(std::max(std::min(p, MAX_PRICE_SURGE), -MAX_PRICE_SURGE), -assort.fare);
         assort.adj_fare = p;
@@ -594,9 +626,9 @@ std::vector<Option> Controller::pricing_model_free(std::vector<Option> assortmen
 
 
 std::vector<Option> Controller::assort_adjust_rand(std::vector<Option> assortment, int ori, int des){
-    int size = int(assortment.size());
+    int size = int(assortment.size())-1;
     std::vector<Option> opt_assortment;
-    opt_assortment.reserve(size);
+    opt_assortment.reserve(size+1);
     std::vector<float> control_value(2,0.0);
     std::vector<float> control_value_std(2,0.0);
     std::vector<float> theta = params.theta;
@@ -619,7 +651,7 @@ std::vector<Option> Controller::assort_adjust_rand(std::vector<Option> assortmen
     for (int i = 0; i < size; i++){
         R[i] = in_model->get_R(assortment[i]);
         sample = nrand(mt);
-        if (assortment[i].type == 0){
+        if (assortment[i].type == Mode::taxi){
             R[i] += control_value[0] + exp(control_value_std[0]) * sample;
             for (int j = 0; j < param_size; j++){
                 theta_grad[j] += (sample / exp(control_value_std[0])) * local_state[j];
@@ -638,9 +670,10 @@ std::vector<Option> Controller::assort_adjust_rand(std::vector<Option> assortmen
     float V0 = V.back();
     V.pop_back();
     float z = get_assort_opt_z(size, V, R, V0);
+    opt_assortment.push_back(assortment[0]);
     for (int i = 0; i < size; i++){
         if (R[i] >= z){
-            opt_assortment.push_back(assortment[i]);
+            opt_assortment.push_back(assortment[i+1]);
         }
     }
     
@@ -650,9 +683,9 @@ std::vector<Option> Controller::assort_adjust_rand(std::vector<Option> assortmen
 }
 
 std::vector<Option> Controller::assort_adjust_post_rand(std::vector<Option> assortment, int ori, int des){
-    int size = int(assortment.size());
+    int size = int(assortment.size())-1;
     std::vector<Option> opt_assortment;
-    opt_assortment.reserve(size);
+    opt_assortment.reserve(size+1);
     std::vector<float> control_value(2,0.0);
     std::vector<float> control_value_std(2,0.0);
     std::vector<float> theta = params.theta;
@@ -673,7 +706,7 @@ std::vector<Option> Controller::assort_adjust_post_rand(std::vector<Option> asso
     float V0 = V.back();
     V.pop_back();
     float z = get_assort_opt_z(size, V, R, V0);
-    
+    opt_assortment.push_back(assortment[0]);
     float temp_p;
     int temp_ind;
     float diff,prob;
@@ -681,14 +714,14 @@ std::vector<Option> Controller::assort_adjust_post_rand(std::vector<Option> asso
         diff = std::max( std::min( (z - R[i]) / alpha, MAX_BIAS), -MAX_BIAS);
         prob = 1.0 / (1.0 + exp(diff));
         if (urand(mt) < prob){
-            opt_assortment.push_back(assortment[i]);
+            opt_assortment.push_back(assortment[i+1]);
             alpha_grad += (1.0 - prob) * (z - R[i]);
             temp_p = (1.0 - prob);
         }else{
             alpha_grad += - prob * (z - R[i]);
             temp_p = - prob;
         }
-        if (assortment[i].type == 0) temp_ind = 0;
+        if (assortment[i].type == Mode::taxi) temp_ind = 0;
         else temp_ind = param_size;
         
         for (int j = 0; j < param_size; j++){
@@ -702,9 +735,10 @@ std::vector<Option> Controller::assort_adjust_post_rand(std::vector<Option> asso
 }
 
 std::vector<Option> Controller::assort_model_free_rand(std::vector<Option> assortment, int ori, int des){
-    int size = int(assortment.size());
+    int size = int(assortment.size()) - 1;
     std::vector<Option> opt_assortment;
-    opt_assortment.reserve(size);
+    opt_assortment.reserve(size+1);
+    opt_assortment.push_back(assortment[0]);
     std::vector<float> control_value(2,0.0);
     std::vector<float> theta = params.theta;
     std::vector<float> mu = params.mu;
@@ -725,20 +759,20 @@ std::vector<Option> Controller::assort_model_free_rand(std::vector<Option> assor
     float temp_p;
     int temp_ind;
     for (int i = 0; i < size; i++){
-        assort_state = get_assort_state(assortment[i]);
+        assort_state = get_assort_state(assortment[i+1]);
         temp = 0;
         for (int j = 0; j < param_size; j++){
             temp += mu[j] * assort_state[j];
         }
-        if (assortment[i].type == 0) prob = 1.0 / (1.0 + exp(control_value[1] + temp));
+        if (assortment[i].type == Mode::taxi) prob = 1.0 / (1.0 + exp(control_value[1] + temp));
         else prob = 1.0 / (1.0 + exp(control_value[0] + temp));
         if (urand(mt) < prob){
-            opt_assortment.push_back(assortment[i]);
+            opt_assortment.push_back(assortment[i+1]);
             temp_p = prob - 1.0;
         }else{
             temp_p = prob;
         }
-        if (assortment[i].type == 0) temp_ind = 0;
+        if (assortment[i].type == Mode::taxi) temp_ind = 0;
         else temp_ind = param_size;
         for (int j = 0; j < param_size; j++){
             mu_grad[j] += temp_p * assort_state[j];
@@ -752,9 +786,10 @@ std::vector<Option> Controller::assort_model_free_rand(std::vector<Option> assor
 }
 
 std::vector<Option> Controller::pricing_adjust_rand(std::vector<Option> assortment, int ori, int des){
-    int size = int(assortment.size());
+    int size = int(assortment.size())-1;
     std::vector<Option> opt_assortment;
-    opt_assortment.reserve(size);
+    opt_assortment.reserve(size+1);
+    opt_assortment.push_back(assortment[0]);
     std::vector<float> control_value(2,0.0);
     std::vector<float> control_value_std(2,0.0);
     std::vector<float> theta = params.theta;
@@ -775,9 +810,9 @@ std::vector<Option> Controller::pricing_adjust_rand(std::vector<Option> assortme
     std::vector<float> R(size, 0.0);
     float sample;
     for (int i = 0; i < size; i++){
-        R[i] = in_model->get_R(assortment[i]);
+        R[i] = in_model->get_R(assortment[i+1]);
         sample = nrand(mt);
-        if (assortment[i].type == 0){
+        if (assortment[i].type == Mode::taxi){
             R[i] += control_value[0] + exp(control_value_std[0]) * sample;
             for (int j = 0; j < param_size; j++){
                 theta_grad[j] += (sample / exp(control_value_std[0])) * local_state[j];
@@ -798,7 +833,7 @@ std::vector<Option> Controller::pricing_adjust_rand(std::vector<Option> assortme
     float z = get_pricing_opt_z(size, V, R, k, V0);
     Option temp;
     for (int i = 0; i < size; i++){
-        temp = assortment[i];
+        temp = assortment[i+1];
         temp.adj_fare = std::max(std::min(z - R[i] + k[i], MAX_PRICE_SURGE), -MAX_PRICE_SURGE);
         opt_assortment.push_back(temp);
     }
@@ -809,9 +844,10 @@ std::vector<Option> Controller::pricing_adjust_rand(std::vector<Option> assortme
 }
 
 std::vector<Option> Controller::pricing_adjust_post_rand(std::vector<Option> assortment, int ori, int des){
-    int size = int(assortment.size());
+    int size = int(assortment.size())-1;
     std::vector<Option> opt_assortment;
-    opt_assortment.reserve(size);
+    opt_assortment.reserve(size+1);
+    opt_assortment.push_back(assortment[0]);
     std::vector<float> control_value(2,0.0);
     std::vector<float> control_value_std(2,0.0);
     std::vector<float> theta = params.theta;
@@ -839,10 +875,10 @@ std::vector<Option> Controller::pricing_adjust_post_rand(std::vector<Option> ass
     float temp_adj_fare;
     float sample;
     for (int i = 0; i < size; i++){
-        temp = assortment[i];
+        temp = assortment[i+1];
         temp_adj_fare = z - R[i] + k[i];
         sample = nrand(mt);
-        if (temp.type == 0){
+        if (temp.type == Mode::taxi){
             temp_adj_fare += control_value[0] + exp(control_value_std[0]) * sample;
             for (int j = 0; j < param_size; j++){
                 theta_grad[j] += (sample / exp(control_value_std[0])) * local_state[j];
@@ -865,9 +901,10 @@ std::vector<Option> Controller::pricing_adjust_post_rand(std::vector<Option> ass
 }
 
 std::vector<Option> Controller::pricing_model_free_rand(std::vector<Option> assortment, int ori, int des){
-    int size = int(assortment.size());
+    int size = int(assortment.size())-1;
     std::vector<Option> opt_assortment;
-    opt_assortment.reserve(size);
+    opt_assortment.reserve(size+1);
+    opt_assortment.push_back(assortment[0]);
     std::vector<float> control_value(2,0.0);
     std::vector<float> control_value_std(2,0.0);
     std::vector<float> theta = params.theta;
@@ -895,7 +932,7 @@ std::vector<Option> Controller::pricing_model_free_rand(std::vector<Option> asso
     float sample;
     
     for (int i = 0; i < size; i++){
-        assort = assortment[i];
+        assort = assortment[i+1];
         assort_state = get_assort_state(assort);
         sample = nrand(mt);
         temp = 0;
@@ -904,7 +941,7 @@ std::vector<Option> Controller::pricing_model_free_rand(std::vector<Option> asso
             temp += mu[j] * assort_state[j];
             temp_std += kappa[j] * assort_state[j];
         }
-        if (assortment[i].type == 0){
+        if (assortment[i+1].type == Mode::taxi){
             p = control_value[0] + temp + exp(control_value_std[0] + temp_std) * sample;
             for (int j = 0; j < param_size; j++){
                 theta_grad[j] += (sample / exp(control_value_std[0] + temp_std)) * local_state[j];
