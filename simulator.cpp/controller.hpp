@@ -51,6 +51,7 @@ class Controller{
     static std::vector< std::vector<float> > *ori_dist;
     static std::vector< std::vector<float> > *des_dist;
     int curr_time;
+    std::vector<float> t;
     std::vector<float> d_in,d_out,a_pri,a_pool;
     Params params;
     std::vector<TrainingData> training_data;

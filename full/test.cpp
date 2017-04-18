@@ -38,7 +38,7 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
             travel_time = load("/Users/hanqiu/proactive_dispatch_c/data/t_d_c_1_0.csv",total_time,grid_size);
             break;
     }
-    
+
     std::vector<VehicleState> vs;
     std::random_device rd;
     std::mt19937 mt(rd());
@@ -48,7 +48,7 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
     }
     Scenario_Setting scenario_setting = {grid_size, p_rate, tax_congest, tax_demand, dynamic_travel_time_flag, dynamic_travel_time_rate, ori_dist, des_dist,travel_time,algo};
     Scenario s = Scenario(scenario_setting);
-    
+
     // process test output
     int test_sample = 1;
     std::string save_path = "/Users/hanqiu/proactive_dispatch_c/result/results.csv";
@@ -56,7 +56,7 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
     simulate_output output;
     std::vector< pax_record > pax_out;
     agent_record final_out;
-    
+
     f.open(save_path, std::ios::out|std::ios::app);
     if (f.is_open()) f<<algo_name<<","<<congestion_factor<<","<<demand_factor<<","<<supply_factor<<","<<p_rate<<","<<tax_congest<<","<<tax_demand<<",,";
     for (int i = 0; i < test_sample; i++){
@@ -91,31 +91,31 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
         if (f.is_open()){
             f<<final_out.revenue<<","<<final_out.cost<<","<<final_out.tax<<","<<final_out.profit<<","<<final_out.total_pax<<","<<final_out.private_pax<<","<<final_out.pool_pax<<","<<float(final_out.total_pax)/fleet_size<<","<<final_out.assort_type.both<<","<<final_out.assort_type.pri<<","<<final_out.assort_type.pool<<","<<ave_travel_time<<","<<ave_distance<<",,"<<output.system_out.back().average_travel_time<<","<<total_demand<<","<<fulfill_demand<<","<<stay_demand<<","<<float(fulfill_demand)/float(total_demand)<<","<<ave_delay<<","<<ave_fulfill_delay<<","<<ave_pickup<<"\n";
         }
-        
+
     }
     f.close();
-    
+
     return 0;
 }
 
 int get_simulation_result(Algorithm algo,int dynamic_time_flag, std::string algo_name,std::string opt_param_path){
     std::cout<<algo_name<<": \n";
-    
-    std::vector<float> thetaa(8,0.0);
-    std::vector<float> sigmaa(8,0.0);
+
+    std::vector<float> thetaa(12,0.0);
+    std::vector<float> sigmaa(12,0.0);
     std::vector<float> muu(8,0.0);
     std::vector<float> kappaa(8,0.0);
     float alphaa = 0.0;
     Agent_Setting agent_setting = {1,false,{thetaa,sigmaa,muu,kappaa,alphaa}};
-    
-    std::vector<float> in_theta_opt(8,0.0);
+
+    std::vector<float> in_theta_opt(12,0.0);
     int opt_input_flag = 0;
     if ((algo == Algorithm::assort_adjust) or (algo == Algorithm::pricing_adjust)) opt_input_flag = 1;
-    
-    std::vector<float> supply_factor_range = {0.25,0.5,1.0,1.5};
+
+    std::vector<float> supply_factor_range = {0.25,0.5,0.625,0.75,0.875,1.0,1.25};
     std::vector<float> demand_factor_range = {1.0,3.0,6.0};
-    std::vector<float> p_rate_range = {0.5,0.6,0.7,0.8};
-    
+    std::vector<float> p_rate_range = {0.6,0.65,0.7,0.75,0.8};
+
     int congest_level = 1;
     float congest_factor = 1.0;
     float supply_factor = 1.0;
@@ -123,7 +123,7 @@ int get_simulation_result(Algorithm algo,int dynamic_time_flag, std::string algo
     float p_rate = 0.8;
     float tax_congest = -0.1;
     float tax_demand = -0.5;
-    
+
     if (opt_input_flag > 0){
         agent_setting.detail_output_flag = true;
         std::ifstream f;
@@ -132,7 +132,7 @@ int get_simulation_result(Algorithm algo,int dynamic_time_flag, std::string algo
         f.open(opt_param_path, std::ifstream::in);
         while (std::getline(f,line,'\n')){
             std::stringstream lineStream(line);
-            
+
             std::getline(lineStream,cell,',');
             congest_factor = std::stof(cell);
             std::getline(lineStream,cell,',');
@@ -145,12 +145,12 @@ int get_simulation_result(Algorithm algo,int dynamic_time_flag, std::string algo
             tax_congest = std::stof(cell);
             std::getline(lineStream,cell,',');
             tax_demand = std::stof(cell);
-            
-            for(int j = 0; j < 8; j++){
+
+            for(int j = 0; j < 12; j++){
                 std::getline(lineStream,cell,',');
                 in_theta_opt[j] = std::stof(cell);
             }
-            
+
             agent_setting.params.theta = in_theta_opt;
             if (std::abs(congest_factor - 1.0) < 0.01) congest_level = 1;
             if (std::abs(congest_factor - 0.8) < 0.01) congest_level = 2;
@@ -164,11 +164,11 @@ int get_simulation_result(Algorithm algo,int dynamic_time_flag, std::string algo
     else{
         for (int i_congest = 0; i_congest <= 2; i_congest++){
             congest_level = i_congest + 1;
-            for (int i_demand = 0; i_demand <= 0; i_demand++){
+            for (int i_demand = 0; i_demand <= 2; i_demand++){
                 demand_factor = demand_factor_range[i_demand];
-                for (int i_supply = 0; i_supply <= 3; i_supply++){
+                for (int i_supply = 0; i_supply <= 6; i_supply++){
                     supply_factor = supply_factor_range[i_supply];
-                    for (int i_prate = 0; i_prate <= 3; i_prate++){
+                    for (int i_prate = 0; i_prate <= 4; i_prate++){
                         p_rate = p_rate_range[i_prate];
                         for (int i_tax = 0; i_tax <= 1; i_tax++){
                             switch (i_tax) {
@@ -185,7 +185,7 @@ int get_simulation_result(Algorithm algo,int dynamic_time_flag, std::string algo
                                     tax_demand = 0.0;
                                     break;
                             }
-                            
+
                             std::cout<<"Scenario with "<<algo_name<<","<<congest_level<<","<<supply_factor<<","<<demand_factor<<","<<p_rate<<","<<tax_congest<<","<<tax_demand<<": ";
                             test(algo,algo_name,congest_level,demand_factor,supply_factor,p_rate,tax_congest,tax_demand,dynamic_time_flag,agent_setting);
                             std::cout<<"Done. \n";
@@ -195,6 +195,6 @@ int get_simulation_result(Algorithm algo,int dynamic_time_flag, std::string algo
             }
         }
     }
-    
+
     return 0;
 }

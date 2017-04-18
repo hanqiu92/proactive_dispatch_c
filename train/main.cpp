@@ -22,7 +22,7 @@ int main(int argc, const char * argv[]) {
     }
     else{
         // load training input
-        for (int i=0;i<8;i++){
+        for (int i=0;i<12;i++){
             std::cout<<argv[i]<<"\n";
         }
 
@@ -36,9 +36,9 @@ int main(int argc, const char * argv[]) {
         int i_tax = atoi(argv[8]);
 
         // initial scenario setting
-        std::vector<float> supply_factor_range = {0.25,0.5,1.0,1.5};
+        std::vector<float> supply_factor_range = {0.25,0.5,0.625,0.75,0.875,1.0,1.25};
         std::vector<float> demand_factor_range = {1.0,3.0,6.0};
-        std::vector<float> p_rate_range = {0.5,0.6,0.7,0.8};
+        std::vector<float> p_rate_range = {0.6,0.65,0.7,0.75,0.8};
 
         Algorithm algo = Algorithm::full;
         int congest_level = 1;
@@ -102,8 +102,8 @@ int main(int argc, const char * argv[]) {
         }
 
         // initialize simulation input
-        std::vector<float> thetaa(8,0.0);
-        std::vector<float> sigmaa(8,0.0);
+        std::vector<float> thetaa(12,0.0);
+        std::vector<float> sigmaa(12,0.0);
         std::vector<float> muu(8,0.0);
         std::vector<float> kappaa(8,0.0);
         float alphaa = 0.0;
@@ -121,7 +121,7 @@ int main(int argc, const char * argv[]) {
         // define basic parameters
         int train_iter = 30;
         int train_sample = 5;
-        int n = 8;
+        int n = 12;
         int lam = 12;
         float sigma = 0.25;
         int mu = 3;
@@ -228,7 +228,7 @@ int main(int argc, const char * argv[]) {
         // get current value
         thetaa = arma::conv_to<stdvec>::from(theta_opt);
         std::cout<<congestion_factor<<","<<demand_factor<<","<<supply_factor<<","<<p_rate<<","<<tax_congest<<","<<tax_demand;
-        for (int i = 0; i < 8; i++){
+        for (int i = 0; i < 12; i++){
             std::cout<<","<<theta_opt(i);
         }
         std::cout<<"\n";
