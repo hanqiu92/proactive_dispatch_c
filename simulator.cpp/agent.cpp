@@ -35,7 +35,20 @@ float Agent::fare_cal(int dist, float time, int typ){
 }
 
 float Agent::cost_cal(int dist, float time, int typ){
-    return BASE_COST + U_D_COST * dist + U_T_COST * time;
+    switch (typ){
+        case 0:
+            return BASE_COST + U_D_COST * dist + U_T_COST * time;
+            break;
+        case 1:
+            return BASE_COST + U_D_COST * dist + U_T_COST * time;
+            break;
+        case -1:
+            return U_D_COST * dist + U_T_COST * time;
+            break;
+        default:
+            return U_D_COST * dist + U_T_COST * time;
+            break;
+    }
 }
 
 float Agent::adj_cost_cal(int ori, int des, int dist, float time, int typ){
@@ -305,7 +318,8 @@ std::vector<Option> Agent::gene_assort(int ori,int des){
     
     // first include stay option
     RoutingOutput stay_estimate = routing_module->estimate(ori, des);
-    assortment.push_back({Mode::stay,-1,stay_estimate.dist,stay_estimate.time,0,0,0,0,0,0,-1});
+    float stay_cost = cost_cal(stay_estimate.dist, stay_estimate.time, -1);
+    assortment.push_back({Mode::stay,-1,stay_estimate.dist,stay_estimate.time,0,0,0,stay_cost,0,0,-1});
     //*****************************************************
     //process the vehicle list to find the best private/pool option
     if (!emp_veh_list.empty()){

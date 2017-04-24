@@ -21,7 +21,7 @@ int train(Algorithm algo, int congestion_level, float demand_factor, float suppl
         float congestion_factor;
         int dynamic_travel_time_flag = dynamic_time_flag;
         float dynamic_travel_time_rate = demand_factor / 30.0;
-        int fleet_size = 200 * supply_factor;
+        int fleet_size = 50 * supply_factor;
         std::vector< std::vector<float> > ori_dist = load("/Users/hanqiu/proactive_dispatch_c/data/o_d_c.csv",total_time,grid_size);
         std::vector< std::vector<float> > des_dist = load("/Users/hanqiu/proactive_dispatch_c/data/d_d_c.csv",total_time,grid_size);
         std::vector< std::vector<float> > travel_time;
@@ -88,7 +88,7 @@ int train(Algorithm algo, int congestion_level, float demand_factor, float suppl
         //float alpha_cov = 1.0 / mu;
         float alpha_cov = 1.0;
         float c_cov = alpha_cov * 2 / ((n + std::sqrt(2)) * (n + std::sqrt(2))) + (1 - alpha_cov) * std::min( 1, (2 * mu - 1) / ( (n + 2) * (n + 2) - mu) );
-        float chi = std::sqrt(n) * (1 - 1.0 / 4 / n + 1.0 / 21 / (n * n)) * 1.25;
+        float chi = std::sqrt(n) * (1 - 1.0 / 4 / n + 1.0 / 21 / (n * n));
 
         arma::vec p_c(n,arma::fill::zeros);
         arma::vec p_sigma(n,arma::fill::zeros);
@@ -203,9 +203,9 @@ int train(Algorithm algo, int congestion_level, float demand_factor, float suppl
 }
 
 int get_opt_param(int algo_low, int algo_upp, int congestion_low, int congestion_upp, int demand_low, int demand_upp, int supply_low, int supply_upp, int p_rate_low, int p_rate_upp, int tax_low, int tax_upp, int dynamic_time_flag, int debug_flag){
-    std::vector<float> supply_factor_range = {0.25,0.5,0.625,0.75,0.875,1.0,1.25};
+    std::vector<float> supply_factor_range = {0.6,0.8,1.0,1.2,1.4};
     std::vector<float> demand_factor_range = {1.0,3.0,6.0};
-    std::vector<float> p_rate_range = {0.6,0.65,0.7,0.75,0.8};
+    std::vector<float> p_rate_range = {0.3,0.4,0.5,0.6,0.7,0.8};
 
     Algorithm algo = Algorithm::full;
     int congest_level = 1;

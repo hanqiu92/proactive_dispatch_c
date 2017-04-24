@@ -31,10 +31,10 @@ struct TrainingData{
 };
 
 class InnerModel{
-    static float ASC_private,ASC_pool;
+    static float ASC_private,ASC_pool,ASC_ori;
     static float b_dist_private,b_dist_pool;
-    static float b_time_private,b_time_pool;
-    static float b_fare_private,b_fare_pool;
+    static float b_time_private,b_time_pool,b_time_ori;
+    static float b_fare_ext_private,b_fare_ext_pool,b_fare_ori;
 public:
     InnerModel();
     float get_U(Option assort);

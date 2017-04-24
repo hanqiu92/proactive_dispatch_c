@@ -16,7 +16,7 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
     float congestion_factor;
     int dynamic_travel_time_flag = dynamic_time_flag;
     float dynamic_travel_time_rate = demand_factor / 30.0;
-    int fleet_size = 200 * supply_factor;
+    int fleet_size = 50 * supply_factor;
     std::vector< std::vector<float> > ori_dist = load("/Users/hanqiu/proactive_dispatch_c/data/o_d_c.csv",total_time,grid_size);
     std::vector< std::vector<float> > des_dist = load("/Users/hanqiu/proactive_dispatch_c/data/d_d_c.csv",total_time,grid_size);
     std::vector< std::vector<float> > travel_time;
@@ -50,7 +50,7 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
     Scenario s = Scenario(scenario_setting);
 
     // process test output
-    int test_sample = 1;
+    int test_sample = 5;
     std::string save_path = "/Users/hanqiu/proactive_dispatch_c/result/results.csv";
     std::ofstream f;
     simulate_output output;
@@ -59,40 +59,73 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
 
     f.open(save_path, std::ios::out|std::ios::app);
     if (f.is_open()) f<<algo_name<<","<<congestion_factor<<","<<demand_factor<<","<<supply_factor<<","<<p_rate<<","<<tax_congest<<","<<tax_demand<<",,";
+    
+    // summarize results
+    float revenue = 0.0;
+    float cost = 0.0;
+    float tax = 0.0;
+    float profit = 0.0;
+    int total_pax = 0;
+    int pri_pax = 0;
+    int pool_pax = 0;
+    
+    float sys_total_travel_time = 0.0;
+    float sys_total_density = 0.0;
+    
+    int total_demand = 0;
+    int fulfill_demand = 0;
+    int stay_demand = 0;
+    float total_travel_time = 0.0;
+    float total_distance = 0.0;
+    float total_delay = 0.0;
+    float total_fulfill_delay = 0.0;
+    float total_pickup = 0.0;
     for (int i = 0; i < test_sample; i++){
         output = s.simulate(0,1440,fleet_size,vs,agent_setting);
         pax_out = output.pax_out;
-        // format output
         final_out = output.agent_out.back();
-        int total_demand = int(pax_out.size());
-        int fulfill_demand = 0;
-        int stay_demand = 0;
-        float ave_travel_time = final_out.total_travel_dist/float(fleet_size);
-        float ave_distance = final_out.total_travel_time/float(fleet_size);
-        float ave_delay = 0.0;
-        float ave_fulfill_delay = 0.0;
-        float ave_pickup = 0.0;
-        for (int i = 0; i < total_demand; i++){
+        // operator statistics
+        revenue += final_out.revenue;
+        cost += final_out.cost;
+        tax += final_out.tax;
+        profit += final_out.profit;
+        total_pax += final_out.total_pax;
+        pri_pax += final_out.private_pax;
+        pool_pax += final_out.pool_pax;
+        
+        // system statistics
+        sys_total_travel_time += output.system_out.back().total_travel_time;
+        sys_total_density += output.system_out.back().total_density;
+        
+        // passenger statistics
+        total_demand += int(pax_out.size());
+        total_travel_time += final_out.total_travel_dist;
+        total_distance += final_out.total_travel_time;
+        for (int i = 0; i < int(pax_out.size()); i++){
             if ((pax_out[i].service_type == Mode::taxi) or (pax_out[i].service_type == Mode::pool)){
                 fulfill_demand += 1;
-                ave_fulfill_delay += pax_out[i].delay_time;
-                ave_pickup += pax_out[i].pickup_time;
+                total_fulfill_delay += pax_out[i].delay_time;
+                total_pickup += pax_out[i].pickup_time;
             }
             if (pax_out[i].service_type == Mode::stay){
                 stay_demand += 1;
             }
-            ave_delay += pax_out[i].delay_time;
+            total_delay += pax_out[i].delay_time;
         }
-        ave_delay = ave_delay / total_demand;
-        if (fulfill_demand > 0){
-            ave_fulfill_delay = ave_fulfill_delay / fulfill_demand;
-            ave_pickup = ave_pickup / fulfill_demand;
-        }
-        if (f.is_open()){
-            f<<final_out.revenue<<","<<final_out.cost<<","<<final_out.tax<<","<<final_out.profit<<","<<final_out.total_pax<<","<<final_out.private_pax<<","<<final_out.pool_pax<<","<<float(final_out.total_pax)/fleet_size<<","<<final_out.assort_type.both<<","<<final_out.assort_type.pri<<","<<final_out.assort_type.pool<<","<<ave_travel_time<<","<<ave_distance<<",,"<<output.system_out.back().average_travel_time<<","<<total_demand<<","<<fulfill_demand<<","<<stay_demand<<","<<float(fulfill_demand)/float(total_demand)<<","<<ave_delay<<","<<ave_fulfill_delay<<","<<ave_pickup<<"\n";
-        }
-
     }
+    float ave_delay = total_delay / total_demand;
+    float ave_fulfill_delay = 0.0;
+    float ave_pickup = 0.0;
+    if (fulfill_demand > 0){
+        ave_fulfill_delay = total_fulfill_delay / fulfill_demand;
+        ave_pickup = total_pickup / fulfill_demand;
+    }
+    
+    if (f.is_open()){
+        f<<revenue/test_sample<<","<<cost/test_sample<<","<<tax/test_sample<<","<<profit/test_sample<<","<<total_pax/test_sample<<","<<pri_pax/test_sample<<","<<pool_pax/test_sample<<","<<float(total_pax)/fleet_size/test_sample<<","<<total_travel_time/fleet_size/test_sample<<","<<total_distance/fleet_size/test_sample<<",";
+        f<<","<<sys_total_travel_time/sys_total_density<<","<<total_demand/test_sample<<","<<fulfill_demand/test_sample<<","<<stay_demand/test_sample<<","<<float(fulfill_demand + stay_demand)/float(total_demand)<<","<<ave_delay<<","<<ave_fulfill_delay<<","<<ave_pickup<<"\n";
+    }
+
     f.close();
 
     return 0;
@@ -112,9 +145,9 @@ int get_simulation_result(Algorithm algo,int dynamic_time_flag, std::string algo
     int opt_input_flag = 0;
     if ((algo == Algorithm::assort_adjust) or (algo == Algorithm::pricing_adjust)) opt_input_flag = 1;
 
-    std::vector<float> supply_factor_range = {0.25,0.5,0.625,0.75,0.875,1.0,1.25};
+    std::vector<float> supply_factor_range = {0.6,0.8,1.0,1.2,1.4};
     std::vector<float> demand_factor_range = {1.0,3.0,6.0};
-    std::vector<float> p_rate_range = {0.6,0.65,0.7,0.75,0.8};
+    std::vector<float> p_rate_range = {0.3,0.4,0.5,0.6,0.7,0.8};
 
     int congest_level = 1;
     float congest_factor = 1.0;
@@ -162,13 +195,13 @@ int get_simulation_result(Algorithm algo,int dynamic_time_flag, std::string algo
         f.close();
     }
     else{
-        for (int i_congest = 0; i_congest <= 2; i_congest++){
+        for (int i_congest = 0; i_congest <= 0; i_congest++){
             congest_level = i_congest + 1;
-            for (int i_demand = 0; i_demand <= 2; i_demand++){
+            for (int i_demand = 0; i_demand <= 0; i_demand++){
                 demand_factor = demand_factor_range[i_demand];
-                for (int i_supply = 0; i_supply <= 6; i_supply++){
+                for (int i_supply = 0; i_supply <= 4; i_supply++){
                     supply_factor = supply_factor_range[i_supply];
-                    for (int i_prate = 0; i_prate <= 4; i_prate++){
+                    for (int i_prate = 0; i_prate <= 5; i_prate++){
                         p_rate = p_rate_range[i_prate];
                         for (int i_tax = 0; i_tax <= 1; i_tax++){
                             switch (i_tax) {

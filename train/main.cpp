@@ -22,10 +22,6 @@ int main(int argc, const char * argv[]) {
     }
     else{
         // load training input
-        for (int i=0;i<12;i++){
-            std::cout<<argv[i]<<"\n";
-        }
-
         std::string data_path = argv[1];
         int dynamic_time_flag = atoi(argv[2]);
         int i_algo = atoi(argv[3]);
@@ -36,15 +32,15 @@ int main(int argc, const char * argv[]) {
         int i_tax = atoi(argv[8]);
 
         // initial scenario setting
-        std::vector<float> supply_factor_range = {0.25,0.5,0.625,0.75,0.875,1.0,1.25};
+        std::vector<float> supply_factor_range = {0.6,0.8,1.0,1.2,1.4};
         std::vector<float> demand_factor_range = {1.0,3.0,6.0};
-        std::vector<float> p_rate_range = {0.6,0.65,0.7,0.75,0.8};
+        std::vector<float> p_rate_range = {0.3,0.4,0.5,0.6,0.7,0.8};
 
         Algorithm algo = Algorithm::full;
         int congest_level = 1;
         float supply_factor = 1.0;
         float demand_factor = 1.0;
-        float p_rate = 0.8;
+        float p_rate = 0.5;
         float tax_congest = -0.1;
         float tax_demand = -0.5;
 
@@ -78,7 +74,7 @@ int main(int argc, const char * argv[]) {
         float congestion_factor;
         int dynamic_travel_time_flag = dynamic_time_flag;
         float dynamic_travel_time_rate = demand_factor / 30.0;
-        int fleet_size = 200 * supply_factor;
+        int fleet_size = 50 * supply_factor;
         std::vector< std::vector<float> > ori_dist = load(data_path+"/o_d_c.csv",total_time,grid_size);
         std::vector< std::vector<float> > des_dist = load(data_path+"/d_d_c.csv",total_time,grid_size);
         std::vector< std::vector<float> > travel_time;
@@ -132,7 +128,7 @@ int main(int argc, const char * argv[]) {
         //float alpha_cov = 1.0 / mu;
         float alpha_cov = 1.0;
         float c_cov = alpha_cov * 2 / ((n + std::sqrt(2)) * (n + std::sqrt(2))) + (1 - alpha_cov) * std::min( 1, (2 * mu - 1) / ( (n + 2) * (n + 2) - mu) );
-        float chi = std::sqrt(n) * (1 - 1.0 / 4 / n + 1.0 / 21 / (n * n)) * 1.25;
+        float chi = std::sqrt(n) * (1 - 1.0 / 4 / n + 1.0 / 21 / (n * n));
 
         arma::vec p_c(n,arma::fill::zeros);
         arma::vec p_sigma(n,arma::fill::zeros);

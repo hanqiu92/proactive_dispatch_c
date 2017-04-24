@@ -13,18 +13,23 @@
 
 float U0 = 0.0;
 float a = 10.0;
-float b = 0.5;
-float c = 5.0;
+float b = 0.002;
+float c = 0.2;
 float d = 0.5;
+float e = 2.0;
+float f = 5.0;
 
-float InnerModel::ASC_private = a + 1.0;
-float InnerModel::ASC_pool = a;
-float InnerModel::b_dist_private = 0.0;
-float InnerModel::b_dist_pool = b;
-float InnerModel::b_time_private = b;
-float InnerModel::b_time_pool = 0.5 * b;
-float InnerModel::b_fare_private = c;
-float InnerModel::b_fare_pool = 2 * c;
+float InnerModel::ASC_private = a - 1.0;
+float InnerModel::ASC_pool = a - 2.0;
+float InnerModel::ASC_ori = a;
+float InnerModel::b_dist_private = b;
+float InnerModel::b_dist_pool = b * 2;
+float InnerModel::b_time_private = c;
+float InnerModel::b_time_pool = c * 1.5;
+float InnerModel::b_time_ori = c;
+float InnerModel::b_fare_ext_private = e;
+float InnerModel::b_fare_ext_pool = e;
+float InnerModel::b_fare_ori = f;
 
 InnerModel::InnerModel(){
 
@@ -33,13 +38,17 @@ InnerModel::InnerModel(){
 float InnerModel::get_U(Option assort){
     switch (assort.type) {
         case Mode::pool:
-            return (ASC_pool - b_dist_pool * (assort.dist - 5) -
-                    b_time_pool * (assort.time - assort.dist)) * d;
+            return (ASC_pool - b_dist_pool * assort.dist -
+                    b_time_pool * assort.time - assort.fare - assort.adj_fare * (assort.adj_fare < 0) -
+                    b_fare_ext_pool * assort.adj_fare * (assort.adj_fare > 0)) * d;
             break;
         case Mode::taxi:
-            return (ASC_private - b_dist_private * (assort.dist - 5) -
-                    b_time_private * (assort.time - assort.dist)) * d;
+            return (ASC_private - b_dist_private * assort.dist -
+                    b_time_private * assort.time - assort.fare - assort.adj_fare * (assort.adj_fare < 0) -
+                    b_fare_ext_private * assort.adj_fare * (assort.adj_fare > 0)) * d;
             break;
+        case Mode::stay:
+            return (ASC_ori - b_time_ori * assort.time - b_fare_ori * assort.cost) * d;
         default:
             return 0;
             break;
@@ -55,8 +64,8 @@ float InnerModel::get_U0(){
 }
 
 float InnerModel::get_k(Mode assort_type){
-    if (assort_type == Mode::taxi) return b_fare_private;
-    else return b_fare_pool;
+    if (assort_type == Mode::taxi) return b_fare_ext_private;
+    else return b_fare_ext_pool;
 }
 
 // ****************************************
@@ -317,7 +326,9 @@ float Controller::get_assort_opt_z(int size, std::vector<float> V, std::vector<f
 }
 
 float Controller::get_pricing_opt_z(int size, std::vector<float> V, std::vector<float> R, std::vector<float> k, float V0){
+    std::vector<float> delta_temp;
     std::vector<float> dis_temp;
+    delta_temp.assign(size,0.0);
     dis_temp.assign(size,0.0);
     float S_sum,V_sum,z,delta_z,discount,max_dis;
     S_sum = 0.0;
@@ -332,19 +343,30 @@ float Controller::get_pricing_opt_z(int size, std::vector<float> V, std::vector<
     while (std::abs(delta_z) > 1e-3){
         max_dis = 0.0;
         for (int i = 0; i < size; i++){
-            dis_temp[i] = (R[i]-z) / k[i] - 1;
+            if ((z - R[i] + 1) < 0){
+                delta_temp[i] = z - R[i] + 1;
+                dis_temp[i] = R[i] - z - 1;
+            }else{
+                if ((z - R[i] + k[i]) > 0){
+                    delta_temp[i] = z - R[i] + k[i];
+                    dis_temp[i] = (R[i] - z) / k[i] - 1;
+                }else{
+                    delta_temp[i] = 0;
+                    dis_temp[i] = 0;
+                }
+            }
             if (dis_temp[i] > max_dis) max_dis = dis_temp[i];
         }
         S_sum = 0.0;
         V_sum = V0 / exp(max_dis);
         for (int i = 0; i < size; i++){
             discount = exp(dis_temp[i] - max_dis);
-            S_sum += V[i] * (z + k[i]) * discount;
+            S_sum += V[i] * (R[i] + delta_temp[i]) * discount;
             V_sum += V[i] * discount;
         }
         delta_z = S_sum / V_sum - z;
         // code to check if there is numerical problem in computation
-        if (isnan(delta_z)){
+        if (std::isnan(delta_z)){
             std::cout<<S_sum<<","<<V_sum<<"\n";
             std::cout<<z<<"\n";
             for (int i = 0; i < size; i++){
@@ -492,7 +514,13 @@ std::vector<Option> Controller::pricing(std::vector<Option> assortment, int ori,
     Option temp;
     for (int i = 0; i < size; i++){
         temp = assortment[i+1];
-        temp.adj_fare = std::max(std::min(z - R[i] + k[i], MAX_PRICE_SURGE), -MAX_PRICE_SURGE);
+        if ((z - R[i] + 1) < 0){
+            temp.adj_fare = std::max(std::min(z - R[i] + 1, MAX_PRICE_SURGE), -MAX_PRICE_SURGE);
+        }else{
+            if ((z - R[i] + k[i]) > 0){
+                temp.adj_fare = std::max(std::min(z - R[i] + k[i], MAX_PRICE_SURGE), -MAX_PRICE_SURGE);
+            }
+        }
         opt_assortment.push_back(temp);
     }
     return opt_assortment;
@@ -578,7 +606,13 @@ std::vector<Option> Controller::pricing_adjust(std::vector<Option> assortment, i
     Option temp;
     for (int i = 0; i < size; i++){
         temp = assortment[i+1];
-        temp.adj_fare = std::max(std::min(z - R[i] + k[i], MAX_PRICE_SURGE), -MAX_PRICE_SURGE);
+        if ((z - R[i] + 1) < 0){
+            temp.adj_fare = std::max(std::min(z - R[i] + 1, MAX_PRICE_SURGE), -MAX_PRICE_SURGE);
+        }else{
+            if ((z - R[i] + k[i]) > 0){
+                temp.adj_fare = std::max(std::min(z - R[i] + k[i], MAX_PRICE_SURGE), -MAX_PRICE_SURGE);
+            }
+        }
         opt_assortment.push_back(temp);
     }
     return opt_assortment;
@@ -839,7 +873,13 @@ std::vector<Option> Controller::pricing_adjust_rand(std::vector<Option> assortme
     Option temp;
     for (int i = 0; i < size; i++){
         temp = assortment[i+1];
-        temp.adj_fare = std::max(std::min(z - R[i] + k[i], MAX_PRICE_SURGE), -MAX_PRICE_SURGE);
+        if ((z - R[i] + 1) < 0){
+            temp.adj_fare = std::max(std::min(z - R[i] + 1, MAX_PRICE_SURGE), -MAX_PRICE_SURGE);
+        }else{
+            if ((z - R[i] + k[i]) > 0){
+                temp.adj_fare = std::max(std::min(z - R[i] + k[i], MAX_PRICE_SURGE), -MAX_PRICE_SURGE);
+            }
+        }
         opt_assortment.push_back(temp);
     }
 
@@ -881,7 +921,16 @@ std::vector<Option> Controller::pricing_adjust_post_rand(std::vector<Option> ass
     float sample;
     for (int i = 0; i < size; i++){
         temp = assortment[i+1];
-        temp_adj_fare = z - R[i] + k[i];
+        if ((z - R[i] + 1) < 0){
+            temp_adj_fare = std::max(std::min(z - R[i] + 1, MAX_PRICE_SURGE), -MAX_PRICE_SURGE);
+        }else{
+            if ((z - R[i] + k[i]) > 0){
+                temp_adj_fare = std::max(std::min(z - R[i] + k[i], MAX_PRICE_SURGE), -MAX_PRICE_SURGE);
+            }
+            else{
+                temp_adj_fare = 0.0;
+            }
+        }
         sample = nrand(mt);
         if (temp.type == Mode::taxi){
             temp_adj_fare += control_value[0] + exp(control_value_std[0]) * sample;
