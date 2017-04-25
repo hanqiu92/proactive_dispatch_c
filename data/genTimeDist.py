@@ -94,7 +94,7 @@ def convert_time_by_factor_model2(time,factor):
     new_time = 1.0 * (density <= d1) + 30.0 * (density > d2 * 0.9) + np.minimum((d2 - d1) / d1 * density / (d2 - density), 30.0) * (density <= d2 * 0.9) * (density > d1)
     return new_time
 
-t_dist = convert_time_by_factor_model1(t_dist,factor)
+t_dist = convert_time_by_factor_model2(t_dist,factor)
 t_dist = np.maximum(t_dist,1.0)
 
 pickle.dump(t_dist, open( "t_dist.p", "wb" ))

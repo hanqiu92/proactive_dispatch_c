@@ -9,33 +9,35 @@
 #include "test.hpp"
 
 int test(Algorithm algo, std::string algo_name, int congestion_level, float demand_factor, float supply_factor, float p_rate, float tax_congest, float tax_demand, int dynamic_time_flag, Agent_Setting agent_setting){
+    int test_sample = 1;
     // load simulation input
     int grid_size = 10;
     std::uniform_int_distribution<int> irand(0,grid_size * grid_size-1);
     int total_time = 1440;
     float congestion_factor;
     int dynamic_travel_time_flag = dynamic_time_flag;
-    float dynamic_travel_time_rate = demand_factor / 30.0;
-    int fleet_size = 50 * supply_factor;
-    std::vector< std::vector<float> > ori_dist = load("/Users/hanqiu/proactive_dispatch_c/data/o_d_c.csv",total_time,grid_size);
-    std::vector< std::vector<float> > des_dist = load("/Users/hanqiu/proactive_dispatch_c/data/d_d_c.csv",total_time,grid_size);
+    float dynamic_travel_time_rate = demand_factor / 10.0;
+    float demand_scale_factor = 3.0;
+    int fleet_size = 100 * supply_factor * int(demand_scale_factor);
+    std::vector< std::vector<float> > ori_dist = load("/Users/hanqiu/proactive_dispatch_c/data/o_d_c.csv",total_time,grid_size,demand_scale_factor);
+    std::vector< std::vector<float> > des_dist = load("/Users/hanqiu/proactive_dispatch_c/data/d_d_c.csv",total_time,grid_size,demand_scale_factor);
     std::vector< std::vector<float> > travel_time;
     switch (congestion_level) {
         case 1:
             congestion_factor = 1.0;
-            travel_time = load("/Users/hanqiu/proactive_dispatch_c/data/t_d_c_1_0.csv",total_time,grid_size);
+            travel_time = load("/Users/hanqiu/proactive_dispatch_c/data/t_d_c_1_0.csv",total_time,grid_size,1.0);
             break;
         case 2:
             congestion_factor = 0.8;
-            travel_time = load("/Users/hanqiu/proactive_dispatch_c/data/t_d_c_0_8.csv",total_time,grid_size);
+            travel_time = load("/Users/hanqiu/proactive_dispatch_c/data/t_d_c_0_8.csv",total_time,grid_size,1.0);
             break;
         case 3:
             congestion_factor = 1.2;
-            travel_time = load("/Users/hanqiu/proactive_dispatch_c/data/t_d_c_1_2.csv",total_time,grid_size);
+            travel_time = load("/Users/hanqiu/proactive_dispatch_c/data/t_d_c_1_2.csv",total_time,grid_size,1.0);
             break;
         default:
             congestion_factor = 1.0;
-            travel_time = load("/Users/hanqiu/proactive_dispatch_c/data/t_d_c_1_0.csv",total_time,grid_size);
+            travel_time = load("/Users/hanqiu/proactive_dispatch_c/data/t_d_c_1_0.csv",total_time,grid_size,1.0);
             break;
     }
 
@@ -46,11 +48,11 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
     for (int i = 0; i < fleet_size; i++){
         vs.push_back({irand(mt),0,0,{}});
     }
-    Scenario_Setting scenario_setting = {grid_size, p_rate, tax_congest, tax_demand, dynamic_travel_time_flag, dynamic_travel_time_rate, ori_dist, des_dist,travel_time,algo};
+    float density_factor = demand_scale_factor * (1.0 + 0.25 * (congestion_factor - 1.0));
+    Scenario_Setting scenario_setting = {grid_size, p_rate, tax_congest, tax_demand, dynamic_travel_time_flag, dynamic_travel_time_rate, ori_dist, des_dist,travel_time,density_factor,demand_scale_factor,algo};
     Scenario s = Scenario(scenario_setting);
 
     // process test output
-    int test_sample = 5;
     std::string save_path = "/Users/hanqiu/proactive_dispatch_c/result/results.csv";
     std::ofstream f;
     simulate_output output;
@@ -145,17 +147,19 @@ int get_simulation_result(Algorithm algo,int dynamic_time_flag, std::string algo
     int opt_input_flag = 0;
     if ((algo == Algorithm::assort_adjust) or (algo == Algorithm::pricing_adjust)) opt_input_flag = 1;
 
-    std::vector<float> supply_factor_range = {0.6,0.8,1.0,1.2,1.4};
-    std::vector<float> demand_factor_range = {1.0,3.0,6.0};
-    std::vector<float> p_rate_range = {0.3,0.4,0.5,0.6,0.7,0.8};
+    std::vector<float> supply_factor_range = {0.75,1.0,1.25,1.5};
+    std::vector<float> demand_factor_range = {1.0,2.0,4.0};
+    std::vector<float> p_rate_range = {0.4,0.6,0.8};
+    std::vector<float> tax_c_range = {0.0,0.025};
+    std::vector<float> tax_d_range = {0.0,0.25};
 
     int congest_level = 1;
     float congest_factor = 1.0;
     float supply_factor = 1.0;
     float demand_factor = 1.0;
     float p_rate = 0.8;
-    float tax_congest = -0.1;
-    float tax_demand = -0.5;
+    float tax_congest = 0.0;
+    float tax_demand = 0.0;
 
     if (opt_input_flag > 0){
         agent_setting.detail_output_flag = true;
@@ -195,33 +199,23 @@ int get_simulation_result(Algorithm algo,int dynamic_time_flag, std::string algo
         f.close();
     }
     else{
-        for (int i_congest = 0; i_congest <= 0; i_congest++){
+        for (int i_congest = 0; i_congest <= 2; i_congest++){
             congest_level = i_congest + 1;
-            for (int i_demand = 0; i_demand <= 0; i_demand++){
+            for (int i_demand = 0; i_demand <= 2; i_demand++){
                 demand_factor = demand_factor_range[i_demand];
-                for (int i_supply = 0; i_supply <= 4; i_supply++){
+                for (int i_supply = 0; i_supply <= 3; i_supply++){
                     supply_factor = supply_factor_range[i_supply];
-                    for (int i_prate = 0; i_prate <= 5; i_prate++){
+                    for (int i_prate = 0; i_prate <= 2; i_prate++){
                         p_rate = p_rate_range[i_prate];
-                        for (int i_tax = 0; i_tax <= 1; i_tax++){
-                            switch (i_tax) {
-                                case 0:
-                                    tax_congest = 0.0;
-                                    tax_demand = 0.0;
-                                    break;
-                                case 1:
-                                    tax_congest = -0.1;
-                                    tax_demand = -0.5;
-                                    break;
-                                default:
-                                    tax_congest = 0.0;
-                                    tax_demand = 0.0;
-                                    break;
+                        for (int i_tax_c = 0; i_tax_c <= 1; i_tax_c++){
+                            tax_congest = - tax_c_range[i_tax_c];
+                            for (int i_tax_d = 0; i_tax_d <= 1; i_tax_d++){
+                                tax_demand = - tax_d_range[i_tax_d];
+                                
+                                std::cout<<"Scenario with "<<algo_name<<","<<congest_level<<","<<supply_factor<<","<<demand_factor<<","<<p_rate<<","<<tax_congest<<","<<tax_demand<<": ";
+                                test(algo,algo_name,congest_level,demand_factor,supply_factor,p_rate,tax_congest,tax_demand,dynamic_time_flag,agent_setting);
+                                std::cout<<"Done. \n";
                             }
-
-                            std::cout<<"Scenario with "<<algo_name<<","<<congest_level<<","<<supply_factor<<","<<demand_factor<<","<<p_rate<<","<<tax_congest<<","<<tax_demand<<": ";
-                            test(algo,algo_name,congest_level,demand_factor,supply_factor,p_rate,tax_congest,tax_demand,dynamic_time_flag,agent_setting);
-                            std::cout<<"Done. \n";
                         }
                     }
                 }

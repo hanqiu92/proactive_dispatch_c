@@ -27,8 +27,8 @@ for i in xrange(od.shape[0]):
     o_dist[o_t-1,o_x-1,o_y-1] += 1.0
     d_dist[d_t-1,d_x-1,d_y-1] += 1.0
 
-o_dist = o_dist / 30.0
-d_dist = d_dist / 30.0
+o_dist = o_dist / 20.0
+d_dist = d_dist / 20.0
 
 for i in xrange(1440):
     o_dist[i,:,:] = uniform_filter(o_dist[i,:,:], size = 3, mode = 'constant')

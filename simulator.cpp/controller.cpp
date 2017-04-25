@@ -12,24 +12,15 @@
 // inner model part
 
 float U0 = 0.0;
-float a = 10.0;
-float b = 0.002;
-float c = 0.2;
+float a = 5.0;
 float d = 0.5;
-float e = 2.0;
-float f = 5.0;
 
-float InnerModel::ASC_private = a - 1.0;
-float InnerModel::ASC_pool = a - 2.0;
+float InnerModel::ASC_private = a - 0.5;
+float InnerModel::ASC_pool = a - 1.0;
 float InnerModel::ASC_ori = a;
-float InnerModel::b_dist_private = b;
-float InnerModel::b_dist_pool = b * 2;
-float InnerModel::b_time_private = c;
-float InnerModel::b_time_pool = c * 1.5;
-float InnerModel::b_time_ori = c;
-float InnerModel::b_fare_ext_private = e;
-float InnerModel::b_fare_ext_pool = e;
-float InnerModel::b_fare_ori = f;
+float InnerModel::b_time = 0.03;
+float InnerModel::b_fare_ext = 2.0;
+float InnerModel::b_fare_ori = 5.0;
 
 InnerModel::InnerModel(){
 
@@ -38,17 +29,17 @@ InnerModel::InnerModel(){
 float InnerModel::get_U(Option assort){
     switch (assort.type) {
         case Mode::pool:
-            return (ASC_pool - b_dist_pool * assort.dist -
-                    b_time_pool * assort.time - assort.fare - assort.adj_fare * (assort.adj_fare < 0) -
-                    b_fare_ext_pool * assort.adj_fare * (assort.adj_fare > 0)) * d;
+            return (ASC_pool - 1.2 * b_time * (assort.time + assort.pickup_time)- assort.fare -
+                    assort.adj_fare * (assort.adj_fare < 0) -
+                    b_fare_ext * assort.adj_fare * (assort.adj_fare > 0)) * d;
             break;
         case Mode::taxi:
-            return (ASC_private - b_dist_private * assort.dist -
-                    b_time_private * assort.time - assort.fare - assort.adj_fare * (assort.adj_fare < 0) -
-                    b_fare_ext_private * assort.adj_fare * (assort.adj_fare > 0)) * d;
+            return (ASC_private - b_time * (assort.time + assort.pickup_time) - assort.fare -
+                    assort.adj_fare * (assort.adj_fare < 0) -
+                    b_fare_ext * assort.adj_fare * (assort.adj_fare > 0)) * d;
             break;
         case Mode::stay:
-            return (ASC_ori - b_time_ori * assort.time - b_fare_ori * assort.cost) * d;
+            return (ASC_ori - b_time * assort.time - b_fare_ori * assort.cost) * d;
         default:
             return 0;
             break;
@@ -64,13 +55,14 @@ float InnerModel::get_U0(){
 }
 
 float InnerModel::get_k(Mode assort_type){
-    if (assort_type == Mode::taxi) return b_fare_ext_private;
-    else return b_fare_ext_pool;
+    return b_fare_ext;
 }
 
 // ****************************************
 // controller part
 
+float Controller::normalize_factor = 1.0;
+float Controller::demand_factor = 1.0;
 float Controller::MAX_PRICE_SURGE = 10.0;
 float Controller::MAX_BIAS = 10.0;
 InnerModel *Controller::in_model = new InnerModel();
@@ -82,11 +74,13 @@ Algorithm Controller::algorithm = Algorithm::full;
 std::vector<Option> (Controller::*(Controller::optimize_train))(std::vector<Option>, int, int) = &Controller::full;
 std::vector<Option> (Controller::*(Controller::optimize_test))(std::vector<Option>, int, int) = &Controller::full;
 
-void Controller::setting(std::vector< std::vector<float> > &new_ori_dist, std::vector< std::vector<float> > &new_des_dist, Algorithm new_algorithm){
+void Controller::setting(std::vector< std::vector<float> > &new_ori_dist, std::vector< std::vector<float> > &new_des_dist, float new_demand_factor, Algorithm new_algorithm){
     if (in_model == NULL) in_model = new InnerModel();
     ori_dist = &new_ori_dist;
     des_dist = &new_des_dist;
     algorithm = new_algorithm;
+    demand_factor = new_demand_factor;
+    normalize_factor = float(ori_dist->size()) * float((*ori_dist)[0].size()) / 10000.0 / demand_factor;
 }
 
 void Controller::clear(){
@@ -254,7 +248,6 @@ void Controller::update_global_state(Env &env){
     // demand state
     d_in = (*des_dist)[curr_time];
     d_out = (*ori_dist)[curr_time];
-    float normalize_factor = n * n * 1440.0 / 7600.0;
     for (int i = 0; i < n * n; i++){
         d_in[i] = d_in[i] * normalize_factor;
         d_out[i] = d_out[i] * normalize_factor;

@@ -18,16 +18,18 @@ Scenario::Scenario(Scenario_Setting new_scenario_setting){
     ori_dist = new_scenario_setting.ori_dist;
     des_dist = new_scenario_setting.des_dist;
     travel_time = new_scenario_setting.travel_time;
+    density_factor = new_scenario_setting.density_factor;
+    demand_factor = new_scenario_setting.demand_factor;
     dynamic_travel_time_flag = new_scenario_setting.dynamic_travel_time_flag;
     dynamic_travel_time_rate = new_scenario_setting.dynamic_travel_time_rate;
     //routing module
     routing_module = new Routing(grid_size);
     Vehicle::setting(p_rate, *routing_module);
-    Env::setting(grid_size, dynamic_travel_time_rate, dynamic_travel_time_flag, *routing_module);
-    Controller::setting(ori_dist,des_dist,new_scenario_setting.algorithm);
+    Env::setting(grid_size, dynamic_travel_time_rate, dynamic_travel_time_flag, density_factor, *routing_module);
+    Controller::setting(ori_dist,des_dist, demand_factor,new_scenario_setting.algorithm);
     controller_train = new Controller(0);
     controller_test = new Controller(1);
-    Agent::setting(grid_size, p_rate, tax_congest, tax_demand, ori_dist, des_dist, *routing_module, *controller_train, *controller_test);
+    Agent::setting(grid_size, p_rate, tax_congest, tax_demand, ori_dist, des_dist, demand_factor, *routing_module, *controller_train, *controller_test);
     // deal with demand
     demand_prob.reserve(TIME_TOTAL);
     std::vector<float> temp_ori_dist,temp_des_dist;

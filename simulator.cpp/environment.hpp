@@ -29,10 +29,9 @@ class Env{
     static int grid_size;
     static Routing *routing_module;
     static float dynamic_travel_time_rate;
-    static float density_normalize_factor;
     static int dynamic_travel_time_flag;
     static float d1,d2;
-    static float density_factor;
+    static float density_factor_fixed,density_factor;
     int fleet_size;
     int total_time;
     int curr_time;
@@ -54,7 +53,7 @@ class Env{
     
 public:
     static void setting(int new_grid_size, float new_dynamic_travel_time_rate,
-                        int new_dynamic_travel_time_flag, Routing &new_routing_module);
+                        int new_dynamic_travel_time_flag, float ext_density_factor, Routing &new_routing_module);
     static void clear();
     int get_grid_size();
     int get_fleet_size();

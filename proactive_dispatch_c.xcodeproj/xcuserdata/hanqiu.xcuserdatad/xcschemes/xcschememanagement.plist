@@ -14,6 +14,11 @@
 			<key>orderHint</key>
 			<integer>0</integer>
 		</dict>
+		<key>test.xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>3</integer>
+		</dict>
 		<key>train.xcscheme</key>
 		<dict>
 			<key>orderHint</key>
@@ -33,6 +38,11 @@
 			<true/>
 		</dict>
 		<key>9399E6CC1E93F981008D2164</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>93FDA7F61EAF8D67007CE897</key>
 		<dict>
 			<key>primary</key>
 			<true/>

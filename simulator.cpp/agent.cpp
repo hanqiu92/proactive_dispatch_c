@@ -11,9 +11,10 @@
 int Agent::grid_size = 0;
 float Agent::p_rate = 1.0;
 float Agent::tax_congest = 0.0;
-float Agent::bound_congest = 1.0;
+float Agent::bound_congest = 1.5;
 float Agent::tax_demand = 0.0;
-float Agent::bound_demand = 0.1;
+float Agent::bound_demand = 7.0;
+float Agent::demand_norm_factor = 1.0;
 Routing *Agent::routing_module = nullptr;
 Controller *Agent::train_controller = nullptr;
 Controller *Agent::test_controller = nullptr;
@@ -35,27 +36,14 @@ float Agent::fare_cal(int dist, float time, int typ){
 }
 
 float Agent::cost_cal(int dist, float time, int typ){
-    switch (typ){
-        case 0:
-            return BASE_COST + U_D_COST * dist + U_T_COST * time;
-            break;
-        case 1:
-            return BASE_COST + U_D_COST * dist + U_T_COST * time;
-            break;
-        case -1:
-            return U_D_COST * dist + U_T_COST * time;
-            break;
-        default:
-            return U_D_COST * dist + U_T_COST * time;
-            break;
-    }
+    return U_D_COST * dist;
 }
 
 float Agent::adj_cost_cal(int ori, int des, int dist, float time, int typ){
-    return float(typ) * ((time - dist * (1.0 + bound_congest)) * (time > dist * (1.0 + bound_congest)) * tax_congest + ((*des_dist)[curr_time][ori] + (*ori_dist)[curr_time][des] - bound_demand) * ((*ori_dist)[curr_time][ori] + (*ori_dist)[curr_time][des] > bound_demand) * tax_demand);
+    return float(typ) * ((time - dist * (1.0 + bound_congest)) * (time > dist * (1.0 + bound_congest)) * tax_congest + (((*des_dist)[curr_time][ori] + (*ori_dist)[curr_time][des]) * demand_norm_factor - bound_demand) * (((*ori_dist)[curr_time][ori] + (*ori_dist)[curr_time][des]) * demand_norm_factor > bound_demand) * tax_demand);
 }
 
-void Agent::setting(int new_grid_size,float new_p_rate,float new_tax_congest,float new_tax_demand,std::vector< std::vector<float> > &new_ori_dist,std::vector< std::vector<float> > &new_des_dist,Routing &new_routing_module,Controller &new_train_controller, Controller&new_test_controller){
+void Agent::setting(int new_grid_size,float new_p_rate,float new_tax_congest,float new_tax_demand,std::vector< std::vector<float> > &new_ori_dist,std::vector< std::vector<float> > &new_des_dist, float demand_factor,Routing &new_routing_module,Controller &new_train_controller, Controller&new_test_controller){
     grid_size = new_grid_size;
     p_rate = new_p_rate;
     tax_congest = new_tax_congest;
@@ -65,6 +53,7 @@ void Agent::setting(int new_grid_size,float new_p_rate,float new_tax_congest,flo
     routing_module = &new_routing_module;
     train_controller = &new_train_controller;
     test_controller = &new_test_controller;
+    demand_norm_factor = float(ori_dist->size()) * float((*ori_dist)[0].size()) / 10000.0 / demand_factor;
 }
 
 void Agent::clear(){
@@ -277,7 +266,7 @@ std::vector<Option> Agent::gene_assort(int ori,int des){
     std::vector<int> avi_veh_location = env->get_avi_veh_location();
     
     std::vector<Option> assortment;
-    assortment.reserve(10);
+    assortment.reserve(5);
     std::vector<int>::iterator it;
     //*****************************************************
     //search for both vehicles
@@ -362,8 +351,9 @@ std::vector<Option> Agent::gene_assort(int ori,int des){
     if (!avi_veh_list.empty()){
         RoutingOutput new_estimate = routing_module->estimate(ori, des);
         pool_adj_cost = adj_cost_cal(ori, des, new_estimate.dist, new_estimate.time, 1);
+        std::random_shuffle(dist_avi.begin(),dist_avi.end());
         for (it = avi_veh_list.begin(); it != avi_veh_list.end(); ++it){
-            if (avi_veh_location[*it] > 0){
+            if ((avi_veh_location[*it] > 0) and (assortment.size() < 5)){
                 Vehicle *this_veh = fleet[*it];
                 std::vector<Des> des_list = this_veh->get_dest();
                 //to simplify, always go to pick up the new pax

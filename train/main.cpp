@@ -16,7 +16,7 @@
 typedef std::vector<float> stdvec;
 
 int main(int argc, const char * argv[]) {
-    if (argc != 9){
+    if (argc != 10){
         std::cout<<"error!\n";
         return -1;
     }
@@ -29,20 +29,23 @@ int main(int argc, const char * argv[]) {
         int i_congest = atoi(argv[5]);
         int i_supply = atoi(argv[6]);
         int i_prate = atoi(argv[7]);
-        int i_tax = atoi(argv[8]);
+        int i_tax_c = atoi(argv[8]);
+        int i_tax_d = atoi(argv[9]);
 
         // initial scenario setting
-        std::vector<float> supply_factor_range = {0.6,0.8,1.0,1.2,1.4};
-        std::vector<float> demand_factor_range = {1.0,3.0,6.0};
-        std::vector<float> p_rate_range = {0.3,0.4,0.5,0.6,0.7,0.8};
+        std::vector<float> supply_factor_range = {0.75,1.0,1.25,1.5};
+        std::vector<float> demand_factor_range = {1.0,2.0,4.0};
+        std::vector<float> p_rate_range = {0.4,0.6,0.8};
+        std::vector<float> tax_c_range = {0.0,0.025};
+        std::vector<float> tax_d_range = {0.0,0.25};
 
         Algorithm algo = Algorithm::full;
         int congest_level = 1;
         float supply_factor = 1.0;
         float demand_factor = 1.0;
         float p_rate = 0.5;
-        float tax_congest = -0.1;
-        float tax_demand = -0.5;
+        float tax_congest = 0.0;
+        float tax_demand = 0.0;
 
         if (i_algo == 0) algo = Algorithm::pricing_adjust;
         if (i_algo == 1) algo = Algorithm::assort_adjust;
@@ -50,20 +53,8 @@ int main(int argc, const char * argv[]) {
         demand_factor = demand_factor_range[i_demand];
         supply_factor = supply_factor_range[i_supply];
         p_rate = p_rate_range[i_prate];
-        switch (i_tax) {
-            case 0:
-                tax_congest = 0.0;
-                tax_demand = 0.0;
-                break;
-            case 1:
-                tax_congest = -0.1;
-                tax_demand = -0.5;
-                break;
-            default:
-                tax_congest = 0.0;
-                tax_demand = 0.0;
-                break;
-        }
+        tax_congest = - tax_c_range[i_tax_c];
+        tax_demand = - tax_d_range[i_tax_d];
 
         int debug_flag = 0;
 
@@ -73,27 +64,28 @@ int main(int argc, const char * argv[]) {
         int total_time = 1440;
         float congestion_factor;
         int dynamic_travel_time_flag = dynamic_time_flag;
-        float dynamic_travel_time_rate = demand_factor / 30.0;
-        int fleet_size = 50 * supply_factor;
-        std::vector< std::vector<float> > ori_dist = load(data_path+"/o_d_c.csv",total_time,grid_size);
-        std::vector< std::vector<float> > des_dist = load(data_path+"/d_d_c.csv",total_time,grid_size);
+        float dynamic_travel_time_rate = demand_factor / 10.0;
+        float demand_scale_factor = 5.0;
+        int fleet_size = 100 * supply_factor * int(demand_scale_factor);
+        std::vector< std::vector<float> > ori_dist = load(data_path+"/o_d_c.csv",total_time,grid_size,demand_scale_factor);
+        std::vector< std::vector<float> > des_dist = load(data_path+"/d_d_c.csv",total_time,grid_size,demand_scale_factor);
         std::vector< std::vector<float> > travel_time;
         switch (congest_level) {
             case 1:
                 congestion_factor = 1.0;
-                travel_time = load(data_path+"/t_d_c_1_0.csv",total_time,grid_size);
+                travel_time = load(data_path+"/t_d_c_1_0.csv",total_time,grid_size,1.0);
                 break;
             case 2:
                 congestion_factor = 0.8;
-                travel_time = load(data_path+"/t_d_c_0_8.csv",total_time,grid_size);
+                travel_time = load(data_path+"/t_d_c_0_8.csv",total_time,grid_size,1.0);
                 break;
             case 3:
                 congestion_factor = 1.2;
-                travel_time = load(data_path+"/t_d_c_1_2.csv",total_time,grid_size);
+                travel_time = load(data_path+"/t_d_c_1_2.csv",total_time,grid_size,1.0);
                 break;
             default:
                 congestion_factor = 1.0;
-                travel_time = load(data_path+"/t_d_c_1_0.csv",total_time,grid_size);
+                travel_time = load(data_path+"/t_d_c_1_0.csv",total_time,grid_size,1.0);
                 break;
         }
 
@@ -111,7 +103,8 @@ int main(int argc, const char * argv[]) {
         for (int i = 0; i < fleet_size; i++){
             vs.push_back({irand(mt),0,0,{}});
         }
-        Scenario_Setting scenario_setting = {grid_size, p_rate, tax_congest, tax_demand, dynamic_travel_time_flag, dynamic_travel_time_rate, ori_dist, des_dist,travel_time,algo};
+        float density_factor = demand_scale_factor * (1.0 + 0.25 * (congestion_factor - 1.0));
+        Scenario_Setting scenario_setting = {grid_size, p_rate, tax_congest, tax_demand, dynamic_travel_time_flag, dynamic_travel_time_rate, ori_dist, des_dist,travel_time,density_factor,demand_scale_factor,algo};
         Scenario s = Scenario(scenario_setting);
 
         // define basic parameters
@@ -223,7 +216,7 @@ int main(int argc, const char * argv[]) {
 
         // get current value
         thetaa = arma::conv_to<stdvec>::from(theta_opt);
-        std::cout<<congestion_factor<<","<<demand_factor<<","<<supply_factor<<","<<p_rate<<","<<tax_congest<<","<<tax_demand;
+        std::cout<<i_algo<<","<<congestion_factor<<","<<demand_factor<<","<<supply_factor<<","<<p_rate<<","<<tax_congest<<","<<tax_demand;
         for (int i = 0; i < 12; i++){
             std::cout<<","<<theta_opt(i);
         }

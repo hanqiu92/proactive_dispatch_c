@@ -32,9 +32,8 @@ struct TrainingData{
 
 class InnerModel{
     static float ASC_private,ASC_pool,ASC_ori;
-    static float b_dist_private,b_dist_pool;
-    static float b_time_private,b_time_pool,b_time_ori;
-    static float b_fare_ext_private,b_fare_ext_pool,b_fare_ori;
+    static float b_time;
+    static float b_fare_ext,b_fare_ori;
 public:
     InnerModel();
     float get_U(Option assort);
@@ -50,6 +49,8 @@ class Controller{
     static InnerModel *in_model;
     static std::vector< std::vector<float> > *ori_dist;
     static std::vector< std::vector<float> > *des_dist;
+    static float demand_factor;
+    static float normalize_factor;
     int curr_time;
     std::vector<float> t;
     std::vector<float> d_in,d_out,a_pri,a_pool;
@@ -68,7 +69,7 @@ public:
     static std::vector<Option> (Controller::*optimize_test)(std::vector<Option>, int, int);
     std::vector<Option> (Controller::*optimize)(std::vector<Option>, int, int);
     
-    static void setting(std::vector< std::vector<float> > &new_ori_dist,std::vector< std::vector<float> > &new_des_dist,Algorithm new_algorithm);
+    static void setting(std::vector< std::vector<float> > &new_ori_dist,std::vector< std::vector<float> > &new_des_dist, float new_demand_factor, Algorithm new_algorithm);
     static void clear();
     Controller(int status); // 0 is training, 1 is test
     

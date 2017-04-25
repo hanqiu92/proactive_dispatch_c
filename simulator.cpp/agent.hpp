@@ -63,6 +63,7 @@ class Agent{
     static Controller *test_controller;
     static std::vector< std::vector<float> > *ori_dist;
     static std::vector< std::vector<float> > *des_dist;
+    static float demand_norm_factor;
     
     Controller *controller;
     Env *env;
@@ -80,7 +81,7 @@ public:
     float fare_cal(int dist, float time, int typ);
     float cost_cal(int dist, float time, int typ);
     float adj_cost_cal(int ori, int des, int dist, float time, int typ);
-    static void setting(int new_grid_size,float new_p_rate, float new_tax_congest, float new_tax_demand, std::vector< std::vector<float> > &new_ori_dist,std::vector< std::vector<float> > &new_des_dist,Routing &new_routing_module,Controller &new_train_controller, Controller&new_test_controller);
+    static void setting(int new_grid_size,float new_p_rate, float new_tax_congest, float new_tax_demand, std::vector< std::vector<float> > &new_ori_dist,std::vector< std::vector<float> > &new_des_dist, float demand_factor,Routing &new_routing_module,Controller &new_train_controller, Controller&new_test_controller);
     static void clear();
     Agent(Env_Setting env_setting,Agent_Setting agent_setting);
     ~Agent();

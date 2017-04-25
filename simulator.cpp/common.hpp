@@ -20,12 +20,12 @@
 #include <random>
 
 static const int MAX_CAPACITY = 3;
-static const float U_D_COST = 0.1;
+static const float U_D_COST = 0.07;
 static const float U_T_COST = 0.0;
-static const float U_D_FARE = 0.5;
-static const float U_T_FARE = 0.02;
-static const float BASE_COST = 1.0;
-static const float BASE_FARE = 2.0;
+static const float BASE_COST = 0.0;
+static const float U_D_FARE = 0.25;
+static const float U_T_FARE = 0.01;
+static const float BASE_FARE = 1.0;
 
 static const int EMP_SEARCH_DIST = 5;
 static const int AVI_SEARCH_DIST = 2;

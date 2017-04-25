@@ -12,11 +12,11 @@ Routing *Env::routing_module = nullptr;
 int Env::grid_size = 0;
 float Env::dynamic_travel_time_rate = 0.0;
 int Env::dynamic_travel_time_flag = 0;
-float Env::density_normalize_factor = 30.0;
 
 float Env::d1 = 1.0;
 float Env::d2 = 6.0;
-float Env::density_factor = 17;
+float Env::density_factor_fixed = 1.0;
+float Env::density_factor = 1.0;
 
 float Env::Greenshield_density_to_time(float density){
     float travel_time;
@@ -28,7 +28,7 @@ float Env::Greenshield_density_to_time(float density){
             travel_time = 30.0;
         }
         else{
-            travel_time = (d2 - d1) / (d2 - density);
+            travel_time = (d2 - d1) / (d2 - density) * density / d1;
             if (travel_time > 30.0){
                 travel_time = 30.0;
             }
@@ -39,16 +39,17 @@ float Env::Greenshield_density_to_time(float density){
 
 float Env::Greenshield_time_to_density(float time){
     float density;
-    density = d2 - (d2 - d1) / time;
+    density = d1 * d2 * time / ( d1 * time + (d2 - d1));
     return density;
 }
 
 void Env::setting(int new_grid_size, float new_dyanmic_travel_time_rate,
-                  int new_dynamic_travel_time_flag, Routing &new_routing_module){
+                  int new_dynamic_travel_time_flag, float ext_density_factor, Routing &new_routing_module){
     grid_size = new_grid_size;
     dynamic_travel_time_flag = new_dynamic_travel_time_flag;
     dynamic_travel_time_rate = new_dyanmic_travel_time_rate;
     routing_module = &new_routing_module;
+    density_factor = density_factor_fixed * ext_density_factor;
 }
 
 void Env::clear(){
@@ -252,7 +253,7 @@ void Env::next_step(){
     travel_time = (*travel_time_total)[curr_time];
     if (dynamic_travel_time_flag == 1){
         for (int i = 0; i < grid_size * grid_size; i++){
-            temp_density = (1 - dynamic_travel_time_rate) * Greenshield_time_to_density(travel_time[i]) + dynamic_travel_time_rate * density_normalize_factor * density[i] / density_factor;
+            temp_density = (1 - dynamic_travel_time_rate) * Greenshield_time_to_density(travel_time[i]) + dynamic_travel_time_rate * density[i] / density_factor;
             travel_time[i] = Greenshield_density_to_time(temp_density);
             last_sys_travel_time += travel_time[i] * temp_density;
             last_sys_density += temp_density;

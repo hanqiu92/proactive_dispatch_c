@@ -21,6 +21,8 @@ struct Scenario_Setting{
     std::vector< std::vector<float> > ori_dist;
     std::vector< std::vector<float> > des_dist;
     std::vector< std::vector<float> > travel_time;
+    float density_factor;
+    float demand_factor;
     Algorithm algorithm;
 };
 
@@ -51,6 +53,8 @@ class Scenario{
     std::vector< std::vector<float> > des_dist;
     std::vector<DemandProb> demand_prob;
     std::vector< std::vector<float> > travel_time;
+    float density_factor;
+    float demand_factor;
     Routing *routing_module;
     Controller *controller_train;
     Controller *controller_test;
