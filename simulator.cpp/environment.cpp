@@ -15,7 +15,7 @@ int Env::dynamic_travel_time_flag = 0;
 
 float Env::d1 = 1.0;
 float Env::d2 = 6.0;
-float Env::density_factor_fixed = 1.0;
+float Env::density_factor_fixed = 0.8;
 float Env::density_factor = 1.0;
 
 float Env::Greenshield_density_to_time(float density){
@@ -121,6 +121,7 @@ Env::Env(Env_Setting new_env_setting){
     veh_pool_capacity.assign(fleet_size,0);
     density.assign(grid_size * grid_size,0.0);
     sys_stat.reserve(travel_time_total->size());
+    usual_traffic_dist.reserve(fleet_size);
     usual_traffic_location.reserve(fleet_size);
     usual_traffic_route.reserve(fleet_size);
     usual_traffic_route_index.reserve(fleet_size);
@@ -175,7 +176,7 @@ void Env::update_usual_traffic(int ori, int des){
         RoutingOutput estimate = routing_module->accurate(ori, des);
         usual_traffic_route.push_back(estimate.route);
         usual_traffic_location.push_back(estimate.route[0]);
-        usual_traffic_time.push_back(0.0);
+        usual_traffic_dist.push_back(0.5);
         usual_traffic_route_index.push_back(0);
     }
 }
@@ -210,31 +211,33 @@ void Env::next_step(){
         }
     }
     
-    // deal with usual traffic
-    for (int i = 0; i < int(usual_traffic_location.size()); i++){
-        // do the move
-        if (usual_traffic_location[i] >= 0){
-            float cell_time = usual_traffic_time[i] + 1.0;
-            
-            if (cell_time >= travel_time[usual_traffic_location[i]]){
-                cell_time -= travel_time[usual_traffic_location[i]];
-                usual_traffic_route_index[i] += 1;
-                if (usual_traffic_route_index[i] < int(usual_traffic_route[i].size()) - 1){
-                    usual_traffic_location[i] = usual_traffic_route[i][usual_traffic_route_index[i]];
-                }else{
-                    usual_traffic_location[i] = -1;
+    if (dynamic_travel_time_flag > 0){
+        // deal with usual traffic
+        for (int i = 0; i < int(usual_traffic_location.size()); i++){
+            // do the move
+            if (usual_traffic_location[i] >= 0){
+                float cell_dist = usual_traffic_dist[i] + 1.0 / travel_time[usual_traffic_location[i]];
+                
+                if (cell_dist >= 1.0){
+                    cell_dist -= 1.0;
+                    usual_traffic_route_index[i] += 1;
+                    if (usual_traffic_route_index[i] < int(usual_traffic_route[i].size()) - 1){
+                        usual_traffic_location[i] = usual_traffic_route[i][usual_traffic_route_index[i]];
+                    }else{
+                        usual_traffic_location[i] = -1;
+                    }
                 }
+                usual_traffic_dist[i] = cell_dist;
             }
-            usual_traffic_time[i] = cell_time;
-        }
-        
-        // update density matrix
-        if (usual_traffic_location[i] >= 0){
-            for (int n_col = -1; n_col <= 1; n_col++){
-                for (int n_row = -1; n_row <= 1; n_row++){
-                    loc_temp = usual_traffic_location[i] + grid_size * n_col + n_row;
-                    if ((loc_temp >= 0) and (loc_temp < grid_size * grid_size)){
-                        density[loc_temp] += 1.0 / 9.0;
+            
+            // update density matrix
+            if (usual_traffic_location[i] >= 0){
+                for (int n_col = -1; n_col <= 1; n_col++){
+                    for (int n_row = -1; n_row <= 1; n_row++){
+                        loc_temp = usual_traffic_location[i] + grid_size * n_col + n_row;
+                        if ((loc_temp >= 0) and (loc_temp < grid_size * grid_size)){
+                            density[loc_temp] += 1.0 / 9.0;
+                        }
                     }
                 }
             }

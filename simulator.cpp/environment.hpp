@@ -40,7 +40,7 @@ class Env{
     std::vector< std::vector< std::pair<int,int> > > *demand;
     std::vector< std::vector<float> > *travel_time_total;
     std::vector<int> usual_traffic_location;
-    std::vector<int> usual_traffic_time;
+    std::vector<float> usual_traffic_dist;
     std::vector<int> usual_traffic_route_index;
     std::vector< std::vector<int> > usual_traffic_route;
     std::vector<Vehicle *> fleet;

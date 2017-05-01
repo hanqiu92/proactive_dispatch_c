@@ -11,8 +11,9 @@
 #include "load.hpp"
 
 int main(int argc, const char * argv[]) {
-    if ((argc != 9) or (argc != 2)){
+    if ((argc != 9) and (argc != 3)){
         std::cout<<"error!\n";
+        std::cout<<argc<<"\n";
         return -1;
     }
     else{
@@ -28,9 +29,9 @@ int main(int argc, const char * argv[]) {
         std::vector<float> p_rate_range = {0.4,0.6,0.8};
         std::vector<float> tax_c_range = {0.0,0.025};
         std::vector<float> tax_d_range = {0.0,0.25};
-        
+
         Algorithm algo = Algorithm::full;
-        int i_algo;
+        int i_algo = 2;
         std::string algo_name;
         int congest_level = 1;
         float congest_factor = 1.0;
@@ -42,13 +43,13 @@ int main(int argc, const char * argv[]) {
         if (argc == 9){
             // strategies without param
             i_algo = atoi(argv[2]);
-            int i_demand = atoi(argv[3]);
-            int i_congest = atoi(argv[4]);
+            int i_congest = atoi(argv[3]);
+            int i_demand = atoi(argv[4]);
             int i_supply = atoi(argv[5]);
             int i_prate = atoi(argv[6]);
             int i_tax_c = atoi(argv[7]);
             int i_tax_d = atoi(argv[8]);
-            
+
             congest_level = i_congest + 1;
             demand_factor = demand_factor_range[i_demand];
             supply_factor = supply_factor_range[i_supply];
@@ -64,7 +65,7 @@ int main(int argc, const char * argv[]) {
             f.open(argv[2], std::ifstream::in);
             if (std::getline(f,line,'\n')){
                 std::stringstream lineStream(line);
-                
+
                 std::getline(lineStream,cell,',');
                 i_algo = std::stoi(cell);
                 std::getline(lineStream,cell,',');
@@ -79,14 +80,14 @@ int main(int argc, const char * argv[]) {
                 tax_congest = std::stof(cell);
                 std::getline(lineStream,cell,',');
                 tax_demand = std::stof(cell);
-                
+
                 std::vector<float> in_theta_opt(12,0.0);
                 for(int j = 0; j < 12; j++){
                     std::getline(lineStream,cell,',');
                     in_theta_opt[j] = std::stof(cell);
                 }
                 agent_setting.params.theta = in_theta_opt;
-                
+
                 if (std::abs(congest_factor - 1.0) < 0.01) congest_level = 1;
                 if (std::abs(congest_factor - 0.8) < 0.01) congest_level = 2;
                 if (std::abs(congest_factor - 1.2) < 0.01) congest_level = 3;
@@ -99,27 +100,19 @@ int main(int argc, const char * argv[]) {
                 algo_name = "Pricing Opt";
                 break;
             case 1:
-                algo = Algorithm::assort_adjust;
-                algo_name = "Assort Opt";
-                break;
-            case 2:
                 algo = Algorithm::full;
                 algo_name = "Full";
                 break;
-            case 3:
+            case 2:
                 algo = Algorithm::pricing;
-                algo_name = "Pricing";
-                break;
-            case 4:
-                algo = Algorithm::assort;
-                algo_name = "Assort";
+                algo_name = "Pool";
                 break;
             default:
                 algo = Algorithm::full;
                 algo_name = "Full";
                 break;
         }
-        
+
         // load simulation input
         std::string data_path = argv[1];
         int grid_size = 10;
@@ -128,30 +121,30 @@ int main(int argc, const char * argv[]) {
         float congestion_factor;
         int dynamic_travel_time_flag = 1;
         float dynamic_travel_time_rate = demand_factor / 10.0;
-        float demand_scale_factor = 3.0;
+        float demand_scale_factor = 10.0;
         int fleet_size = 100 * supply_factor * int(demand_scale_factor);
-        std::vector< std::vector<float> > ori_dist = load("/Users/hanqiu/proactive_dispatch_c/data/o_d_c.csv",total_time,grid_size,demand_scale_factor);
-        std::vector< std::vector<float> > des_dist = load("/Users/hanqiu/proactive_dispatch_c/data/d_d_c.csv",total_time,grid_size,demand_scale_factor);
+        std::vector< std::vector<float> > ori_dist = load(data_path+"/o_d_c.csv",total_time,grid_size,demand_scale_factor);
+        std::vector< std::vector<float> > des_dist = load(data_path+"/d_d_c.csv",total_time,grid_size,demand_scale_factor);
         std::vector< std::vector<float> > travel_time;
         switch (congest_level) {
             case 1:
                 congestion_factor = 1.0;
-                travel_time = load("/Users/hanqiu/proactive_dispatch_c/data/t_d_c_1_0.csv",total_time,grid_size,1.0);
+                travel_time = load(data_path+"/t_d_c_1_0.csv",total_time,grid_size,1.0);
                 break;
             case 2:
                 congestion_factor = 0.8;
-                travel_time = load("/Users/hanqiu/proactive_dispatch_c/data/t_d_c_0_8.csv",total_time,grid_size,1.0);
+                travel_time = load(data_path+"/t_d_c_0_8.csv",total_time,grid_size,1.0);
                 break;
             case 3:
                 congestion_factor = 1.2;
-                travel_time = load("/Users/hanqiu/proactive_dispatch_c/data/t_d_c_1_2.csv",total_time,grid_size,1.0);
+                travel_time = load(data_path+"/t_d_c_1_2.csv",total_time,grid_size,1.0);
                 break;
             default:
                 congestion_factor = 1.0;
-                travel_time = load("/Users/hanqiu/proactive_dispatch_c/data/t_d_c_1_0.csv",total_time,grid_size,1.0);
+                travel_time = load(data_path+"/t_d_c_1_0.csv",total_time,grid_size,1.0);
                 break;
         }
-        
+
         std::vector<VehicleState> vs;
         std::random_device rd;
         std::mt19937 mt(rd());
@@ -162,12 +155,12 @@ int main(int argc, const char * argv[]) {
         float density_factor = demand_scale_factor * (1.0 + 0.25 * (congestion_factor - 1.0));
         Scenario_Setting scenario_setting = {grid_size, p_rate, tax_congest, tax_demand, dynamic_travel_time_flag, dynamic_travel_time_rate, ori_dist, des_dist,travel_time,density_factor,demand_scale_factor,algo};
         Scenario s = Scenario(scenario_setting);
-        
+
         // process test output
         simulate_output output;
         std::vector< pax_record > pax_out;
         agent_record final_out;
-        
+
         // summarize results
         float revenue = 0.0;
         float cost = 0.0;
@@ -176,10 +169,10 @@ int main(int argc, const char * argv[]) {
         int total_pax = 0;
         int pri_pax = 0;
         int pool_pax = 0;
-        
+
         float sys_total_travel_time = 0.0;
         float sys_total_density = 0.0;
-        
+
         int total_demand = 0;
         int fulfill_demand = 0;
         int stay_demand = 0;
@@ -188,8 +181,8 @@ int main(int argc, const char * argv[]) {
         float total_delay = 0.0;
         float total_fulfill_delay = 0.0;
         float total_pickup = 0.0;
-        
-        int test_sample = 5;
+
+        int test_sample = 50;
         for (int i = 0; i < test_sample; i++){
             output = s.simulate(0,1440,fleet_size,vs,agent_setting);
             pax_out = output.pax_out;
@@ -202,11 +195,11 @@ int main(int argc, const char * argv[]) {
             total_pax += final_out.total_pax;
             pri_pax += final_out.private_pax;
             pool_pax += final_out.pool_pax;
-            
+
             // system statistics
             sys_total_travel_time += output.system_out.back().total_travel_time;
             sys_total_density += output.system_out.back().total_density;
-            
+
             // passenger statistics
             total_demand += int(pax_out.size());
             total_travel_time += final_out.total_travel_dist;

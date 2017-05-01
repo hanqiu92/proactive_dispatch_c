@@ -48,7 +48,7 @@ class Vehicle{
     std::vector<Des> des_cell;
     
     // current statistics
-    float cell_time;
+    float cell_dist;
     int travel_dist;
     int start_time;
     int ETA;

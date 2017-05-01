@@ -187,10 +187,10 @@ int Agent::process_demand(int ori,int des,int curr_time,int delay_time){
         //call the external model to decide the selection
         int choice_ind = model(opt_assortment,int(opt_assortment.size()));
         if (choice_ind >= 0){
-            pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::stay,0,0,0,0,0});
+            pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::stay,0,float(std::abs(ori / grid_size - des / grid_size) + std::abs(ori % grid_size - des % grid_size)),0,0,0});
             env->update_usual_traffic(ori,des);
         }else{
-            pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::exit,0,0,0,0,0});
+            pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::exit,0,float(std::abs(ori / grid_size - des / grid_size) + std::abs(ori % grid_size - des % grid_size)),0,0,0});
         }
     }else{
         //base on different purpose, add time counter
@@ -217,7 +217,7 @@ int Agent::process_demand(int ori,int des,int curr_time,int delay_time){
                     freq_counter[2] += 1;
                     if (choice_ind >= 0){
                         if (opt_assortment[choice_ind].type == Mode::stay){
-                            pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::stay,0,0,0,0,0});
+                            pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::stay,0,float(std::abs(ori / grid_size - des / grid_size) + std::abs(ori % grid_size - des % grid_size)),0,0,0});
                             env->update_usual_traffic(ori,des);
                             return -1;
                         }else{
@@ -226,7 +226,7 @@ int Agent::process_demand(int ori,int des,int curr_time,int delay_time){
                             return 1;
                         }
                     }
-                    pax_stat.push_back({curr_time - delay_time,curr_time,delay_time,Mode::exit,0,0,0,0,0});
+                    pax_stat.push_back({curr_time - delay_time,curr_time,delay_time,Mode::exit,0,float(std::abs(ori / grid_size - des / grid_size) + std::abs(ori % grid_size - des % grid_size)),0,0,0});
                     return -1;
                 }
             }
@@ -241,7 +241,7 @@ int Agent::process_demand(int ori,int des,int curr_time,int delay_time){
                     int choice_ind = model(opt_assortment,int(opt_assortment.size()));
                     if (choice_ind >= 0){
                         if (opt_assortment[choice_ind].type == Mode::stay){
-                            pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::stay,0,0,0,0,0});
+                            pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::stay,0,float(std::abs(ori / grid_size - des / grid_size) + std::abs(ori % grid_size - des % grid_size)),0,0,0});
                             env->update_usual_traffic(ori,des);
                             return -1;
                         }else{
@@ -249,7 +249,7 @@ int Agent::process_demand(int ori,int des,int curr_time,int delay_time){
                             return 1;
                         }
                     }
-                    pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::exit,0,0,0,0,0});
+                    pax_stat.push_back({curr_time-delay_time,curr_time,delay_time,Mode::exit,0,float(std::abs(ori / grid_size - des / grid_size) + std::abs(ori % grid_size - des % grid_size)),0,0,0});
                     return -1;
                 }
             }
@@ -351,7 +351,7 @@ std::vector<Option> Agent::gene_assort(int ori,int des){
     if (!avi_veh_list.empty()){
         RoutingOutput new_estimate = routing_module->estimate(ori, des);
         pool_adj_cost = adj_cost_cal(ori, des, new_estimate.dist, new_estimate.time, 1);
-        std::random_shuffle(dist_avi.begin(),dist_avi.end());
+        if (avi_veh_list.size() > 5)   std::random_shuffle(avi_veh_list.begin(),avi_veh_list.end());
         for (it = avi_veh_list.begin(); it != avi_veh_list.end(); ++it){
             if ((avi_veh_location[*it] > 0) and (assortment.size() < 5)){
                 Vehicle *this_veh = fleet[*it];

@@ -21,7 +21,7 @@ int train(Algorithm algo, int congestion_level, float demand_factor, float suppl
         float congestion_factor;
         int dynamic_travel_time_flag = dynamic_time_flag;
         float dynamic_travel_time_rate = demand_factor / 10.0;
-        float demand_scale_factor = 5.0;
+        float demand_scale_factor = 3.0;
         int fleet_size = 50 * supply_factor * int(demand_scale_factor);
         std::vector< std::vector<float> > ori_dist = load("/Users/hanqiu/proactive_dispatch_c/data/o_d_c.csv",total_time,grid_size,demand_scale_factor);
         std::vector< std::vector<float> > des_dist = load("/Users/hanqiu/proactive_dispatch_c/data/d_d_c.csv",total_time,grid_size,demand_scale_factor);
@@ -63,7 +63,7 @@ int train(Algorithm algo, int congestion_level, float demand_factor, float suppl
         Scenario s = Scenario(scenario_setting);
 
         // process training input
-        int train_iter = 30;
+        int train_iter = 1;
         int train_sample = 5;
         std::string save_path;
         switch (algo) {

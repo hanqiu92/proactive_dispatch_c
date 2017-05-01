@@ -9,7 +9,7 @@
 #include "test.hpp"
 
 int test(Algorithm algo, std::string algo_name, int congestion_level, float demand_factor, float supply_factor, float p_rate, float tax_congest, float tax_demand, int dynamic_time_flag, Agent_Setting agent_setting){
-    int test_sample = 1;
+    int test_sample = 10;
     // load simulation input
     int grid_size = 10;
     std::uniform_int_distribution<int> irand(0,grid_size * grid_size-1);
@@ -17,7 +17,7 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
     float congestion_factor;
     int dynamic_travel_time_flag = dynamic_time_flag;
     float dynamic_travel_time_rate = demand_factor / 10.0;
-    float demand_scale_factor = 3.0;
+    float demand_scale_factor = 10.0;
     int fleet_size = 100 * supply_factor * int(demand_scale_factor);
     std::vector< std::vector<float> > ori_dist = load("/Users/hanqiu/proactive_dispatch_c/data/o_d_c.csv",total_time,grid_size,demand_scale_factor);
     std::vector< std::vector<float> > des_dist = load("/Users/hanqiu/proactive_dispatch_c/data/d_d_c.csv",total_time,grid_size,demand_scale_factor);
@@ -70,6 +70,8 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
     int total_pax = 0;
     int pri_pax = 0;
     int pool_pax = 0;
+    float total_travel_time = 0.0;
+    float total_distance = 0.0;
     
     float sys_total_travel_time = 0.0;
     float sys_total_density = 0.0;
@@ -77,11 +79,17 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
     int total_demand = 0;
     int fulfill_demand = 0;
     int stay_demand = 0;
-    float total_travel_time = 0.0;
-    float total_distance = 0.0;
+    int exit_demand = 0;
+    
     float total_delay = 0.0;
     float total_fulfill_delay = 0.0;
     float total_pickup = 0.0;
+    
+    float stay_distance = 0.0;
+    float shared_distance = 0.0;
+    float single_distance = 0.0;
+    float exit_distance = 0.0;
+    
     for (int i = 0; i < test_sample; i++){
         output = s.simulate(0,1440,fleet_size,vs,agent_setting);
         pax_out = output.pax_out;
@@ -94,6 +102,8 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
         total_pax += final_out.total_pax;
         pri_pax += final_out.private_pax;
         pool_pax += final_out.pool_pax;
+        total_travel_time += final_out.total_travel_dist;
+        total_distance += final_out.total_travel_time;
         
         // system statistics
         sys_total_travel_time += output.system_out.back().total_travel_time;
@@ -101,16 +111,21 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
         
         // passenger statistics
         total_demand += int(pax_out.size());
-        total_travel_time += final_out.total_travel_dist;
-        total_distance += final_out.total_travel_time;
         for (int i = 0; i < int(pax_out.size()); i++){
             if ((pax_out[i].service_type == Mode::taxi) or (pax_out[i].service_type == Mode::pool)){
                 fulfill_demand += 1;
                 total_fulfill_delay += pax_out[i].delay_time;
                 total_pickup += pax_out[i].pickup_time;
+                if (pax_out[i].service_type == Mode::taxi) single_distance += pax_out[i].dist;
+                else shared_distance += pax_out[i].dist;
             }
             if (pax_out[i].service_type == Mode::stay){
                 stay_demand += 1;
+                stay_distance += pax_out[i].dist;
+            }
+            if (pax_out[i].service_type == Mode::exit){
+                exit_demand += 1;
+                exit_distance += pax_out[i].dist;
             }
             total_delay += pax_out[i].delay_time;
         }
@@ -125,7 +140,7 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
     
     if (f.is_open()){
         f<<revenue/test_sample<<","<<cost/test_sample<<","<<tax/test_sample<<","<<profit/test_sample<<","<<total_pax/test_sample<<","<<pri_pax/test_sample<<","<<pool_pax/test_sample<<","<<float(total_pax)/fleet_size/test_sample<<","<<total_travel_time/fleet_size/test_sample<<","<<total_distance/fleet_size/test_sample<<",";
-        f<<","<<sys_total_travel_time/sys_total_density<<","<<total_demand/test_sample<<","<<fulfill_demand/test_sample<<","<<stay_demand/test_sample<<","<<float(fulfill_demand + stay_demand)/float(total_demand)<<","<<ave_delay<<","<<ave_fulfill_delay<<","<<ave_pickup<<"\n";
+        f<<","<<sys_total_travel_time/sys_total_density<<","<<sys_total_density/test_sample<<","<<total_demand/test_sample<<","<<fulfill_demand/test_sample<<","<<stay_demand/test_sample<<","<<float(fulfill_demand + stay_demand)/float(total_demand)<<","<<single_distance/std::max(pri_pax,1)<<","<<shared_distance/std::max(pool_pax,1)<<","<<stay_distance/std::max(stay_demand,1)<<","<<exit_distance/std::max(exit_demand,1)<<","<<ave_delay<<","<<ave_fulfill_delay<<","<<ave_pickup<<"\n";
     }
 
     f.close();
@@ -147,12 +162,13 @@ int get_simulation_result(Algorithm algo,int dynamic_time_flag, std::string algo
     int opt_input_flag = 0;
     if ((algo == Algorithm::assort_adjust) or (algo == Algorithm::pricing_adjust)) opt_input_flag = 1;
 
-    std::vector<float> supply_factor_range = {0.75,1.0,1.25,1.5};
+    std::vector<float> supply_factor_range = {0.5,0.75,1.0,1.25};
     std::vector<float> demand_factor_range = {1.0,2.0,4.0};
     std::vector<float> p_rate_range = {0.4,0.6,0.8};
     std::vector<float> tax_c_range = {0.0,0.025};
     std::vector<float> tax_d_range = {0.0,0.25};
 
+    int i_algo = 0;
     int congest_level = 1;
     float congest_factor = 1.0;
     float supply_factor = 1.0;
@@ -169,7 +185,9 @@ int get_simulation_result(Algorithm algo,int dynamic_time_flag, std::string algo
         f.open(opt_param_path, std::ifstream::in);
         while (std::getline(f,line,'\n')){
             std::stringstream lineStream(line);
-
+            
+            std::getline(lineStream,cell,',');
+            i_algo = std::stoi(cell);
             std::getline(lineStream,cell,',');
             congest_factor = std::stof(cell);
             std::getline(lineStream,cell,',');
@@ -203,13 +221,13 @@ int get_simulation_result(Algorithm algo,int dynamic_time_flag, std::string algo
             congest_level = i_congest + 1;
             for (int i_demand = 0; i_demand <= 2; i_demand++){
                 demand_factor = demand_factor_range[i_demand];
-                for (int i_supply = 0; i_supply <= 3; i_supply++){
+                for (int i_supply = 0; i_supply <= 0; i_supply++){
                     supply_factor = supply_factor_range[i_supply];
-                    for (int i_prate = 0; i_prate <= 2; i_prate++){
+                    for (int i_prate = 0; i_prate <= 0; i_prate++){
                         p_rate = p_rate_range[i_prate];
-                        for (int i_tax_c = 0; i_tax_c <= 1; i_tax_c++){
+                        for (int i_tax_c = 0; i_tax_c <= 0; i_tax_c++){
                             tax_congest = - tax_c_range[i_tax_c];
-                            for (int i_tax_d = 0; i_tax_d <= 1; i_tax_d++){
+                            for (int i_tax_d = 0; i_tax_d <= 0; i_tax_d++){
                                 tax_demand = - tax_d_range[i_tax_d];
                                 
                                 std::cout<<"Scenario with "<<algo_name<<","<<congest_level<<","<<supply_factor<<","<<demand_factor<<","<<p_rate<<","<<tax_congest<<","<<tax_demand<<": ";

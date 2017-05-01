@@ -46,7 +46,7 @@ Vehicle::Vehicle(int new_id,VehicleState new_vehicle_state){
     pool_remain = max_capacity - (int(des_cell.size()) + curr_pax) / 2;
     
     // current statistics
-    cell_time = 0.0;
+    cell_dist = 0.5;
     travel_dist = 0;
     if (status == 0){
         start_time = -1;
@@ -92,7 +92,7 @@ void Vehicle::update(int new_status,std::vector<Des> new_des_cell,int curr_time,
         pool_remain = 0;
     }
     RoutingOutput new_route = routing(new_des_cell[0].id);
-    cell_time = 0.0;
+    cell_dist = 0.5;
     travel_dist = 0;
     ETA = curr_time + int(new_route.time);
     route = new_route.route;
@@ -127,13 +127,12 @@ std::vector<int> Vehicle::move(int curr_time, std::vector<float> &cell_travel_ti
         //follow the route
         int curr_cell = route[route_index];
         //check travel time
-        cell_time += 1.0;
+        cell_dist += 1.0 / cell_travel_time[curr_cell];
         total_cost += u_t_cost;
         total_time += 1;
         
-        float curr_cell_travel_time = cell_travel_time[curr_cell];
-        if (cell_time >= curr_cell_travel_time){
-            cell_time -= curr_cell_travel_time;
+        if (cell_dist >= 1.0){
+            cell_dist -= 1.0;
             //check if it is move within cell
             if (int(route.size()) > 1){
                 route_index += 1;
@@ -188,7 +187,7 @@ std::vector<int> Vehicle::move(int curr_time, std::vector<float> &cell_travel_ti
                 }
                 //generate new route
                 RoutingOutput new_route = routing(next_des.id);
-                cell_time = 0.0;
+                cell_dist = 0.5;
                 travel_dist = 0;
                 start_time = curr_time;
                 ETA = curr_time + int(new_route.time);
@@ -204,7 +203,7 @@ std::vector<int> Vehicle::move(int curr_time, std::vector<float> &cell_travel_ti
                 status = 0;
                 curr_pax = 0;
                 pool_remain = max_capacity;
-                cell_time = 0.0;
+                cell_dist = 0.5;
                 travel_dist = 0;
                 start_time = -1;
                 ETA = -1;

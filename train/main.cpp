@@ -16,7 +16,7 @@
 typedef std::vector<float> stdvec;
 
 int main(int argc, const char * argv[]) {
-    if (argc != 10){
+    if (argc != 11){
         std::cout<<"error!\n";
         return -1;
     }
@@ -24,13 +24,14 @@ int main(int argc, const char * argv[]) {
         // load training input
         std::string data_path = argv[1];
         int dynamic_time_flag = atoi(argv[2]);
-        int i_algo = atoi(argv[3]);
-        int i_demand = atoi(argv[4]);
+        int debug_flag = atoi(argv[3]);
+        int i_algo = atoi(argv[4]);
         int i_congest = atoi(argv[5]);
-        int i_supply = atoi(argv[6]);
-        int i_prate = atoi(argv[7]);
-        int i_tax_c = atoi(argv[8]);
-        int i_tax_d = atoi(argv[9]);
+        int i_demand = atoi(argv[6]);
+        int i_supply = atoi(argv[7]);
+        int i_prate = atoi(argv[8]);
+        int i_tax_c = atoi(argv[9]);
+        int i_tax_d = atoi(argv[10]);
 
         // initial scenario setting
         std::vector<float> supply_factor_range = {0.75,1.0,1.25,1.5};
@@ -56,8 +57,6 @@ int main(int argc, const char * argv[]) {
         tax_congest = - tax_c_range[i_tax_c];
         tax_demand = - tax_d_range[i_tax_d];
 
-        int debug_flag = 0;
-
         // load simulation input
         int grid_size = 10;
         std::uniform_int_distribution<int> irand(0,grid_size * grid_size-1);
@@ -65,7 +64,7 @@ int main(int argc, const char * argv[]) {
         float congestion_factor;
         int dynamic_travel_time_flag = dynamic_time_flag;
         float dynamic_travel_time_rate = demand_factor / 10.0;
-        float demand_scale_factor = 5.0;
+        float demand_scale_factor = 3.0;
         int fleet_size = 100 * supply_factor * int(demand_scale_factor);
         std::vector< std::vector<float> > ori_dist = load(data_path+"/o_d_c.csv",total_time,grid_size,demand_scale_factor);
         std::vector< std::vector<float> > des_dist = load(data_path+"/d_d_c.csv",total_time,grid_size,demand_scale_factor);
