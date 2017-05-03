@@ -48,7 +48,7 @@ int test(Algorithm algo, std::string algo_name, int congestion_level, float dema
     for (int i = 0; i < fleet_size; i++){
         vs.push_back({irand(mt),0,0,{}});
     }
-    float density_factor = demand_scale_factor * (1.0 + 0.25 * (congestion_factor - 1.0));
+    float density_factor = demand_scale_factor * (1.0 + 0.5 * (congestion_factor - 1.0));
     Scenario_Setting scenario_setting = {grid_size, p_rate, tax_congest, tax_demand, dynamic_travel_time_flag, dynamic_travel_time_rate, ori_dist, des_dist,travel_time,density_factor,demand_scale_factor,algo};
     Scenario s = Scenario(scenario_setting);
 

@@ -22,24 +22,24 @@ int model(std::vector<Option> assort_list, int size){
     const float b_fare_ext = 2.0;
     const float b_fare_ori = 5.0;
     const float exit_preference = 0.0;
-    
+
     // use simple MNL
     std::vector<float> prob(size,0.0);
     float maximum = 0.0;
-    
+
     for (int i = 0; i < size; i++){
         Option temp = assort_list[i];
-        
+
         switch (temp.type) {
             case Mode::pool:
                 prob[i] = (ASC_pool - 1.2 * b_time * (temp.time + temp.pickup_time) - temp.fare -
                            temp.adj_fare * (temp.adj_fare < 0) -
-                           b_fare_ext * temp.adj_fare * temp.adj_fare * (temp.adj_fare > 0)) * d;
+                           b_fare_ext * temp.adj_fare * (temp.adj_fare > 0)) * d;
                 break;
             case Mode::taxi:
                 prob[i] = (ASC_private - b_time * (temp.time + temp.pickup_time) - temp.fare -
                            temp.adj_fare * (temp.adj_fare < 0) -
-                           b_fare_ext * temp.adj_fare * temp.adj_fare * (temp.adj_fare > 0)) * d;
+                           b_fare_ext * temp.adj_fare * (temp.adj_fare > 0)) * d;
                 break;
             case Mode::stay:
                 prob[i] = (ASC_ori - b_time * temp.time - b_fare_ori * temp.cost) * d;
@@ -48,12 +48,12 @@ int model(std::vector<Option> assort_list, int size){
                 prob[i] = 0;
                 break;
         }
-        
+
         if (prob[i] > maximum){
             maximum = prob[i];
         }
     }
-    
+
     float sum = 0.0;
     for (int i = 0; i < size; i++){
         prob[i] = exp(prob[i] - maximum);
@@ -63,7 +63,7 @@ int model(std::vector<Option> assort_list, int size){
     for (int i = 0; i < size; i++){
         prob[i] = prob[i] / sum;
     }
-    
+
     float realization = urand(mt);
     for (int i = 0; i < size; i++){
         if (prob[i] < realization) realization -= prob[i];
@@ -71,4 +71,3 @@ int model(std::vector<Option> assort_list, int size){
     }
     return -1;
 }
-

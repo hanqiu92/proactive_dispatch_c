@@ -24,7 +24,7 @@ int main(int argc, const char * argv[]) {
         std::vector<float> kappaa(8,0.0);
         float alphaa = 0.0;
         Agent_Setting agent_setting = {1,false,{thetaa,sigmaa,muu,kappaa,alphaa}};
-        std::vector<float> supply_factor_range = {0.75,1.0,1.25,1.5};
+        std::vector<float> supply_factor_range = {0.5,0.75,1.0,1.25};
         std::vector<float> demand_factor_range = {1.0,2.0,4.0};
         std::vector<float> p_rate_range = {0.4,0.6,0.8};
         std::vector<float> tax_c_range = {0.0,0.025};
@@ -176,13 +176,20 @@ int main(int argc, const char * argv[]) {
         int total_demand = 0;
         int fulfill_demand = 0;
         int stay_demand = 0;
+        int exit_demand = 0;
+        
         float total_travel_time = 0.0;
         float total_distance = 0.0;
         float total_delay = 0.0;
         float total_fulfill_delay = 0.0;
         float total_pickup = 0.0;
+        
+        float stay_distance = 0.0;
+        float shared_distance = 0.0;
+        float single_distance = 0.0;
+        float exit_distance = 0.0;
 
-        int test_sample = 50;
+        int test_sample = 25;
         for (int i = 0; i < test_sample; i++){
             output = s.simulate(0,1440,fleet_size,vs,agent_setting);
             pax_out = output.pax_out;
@@ -209,9 +216,16 @@ int main(int argc, const char * argv[]) {
                     fulfill_demand += 1;
                     total_fulfill_delay += pax_out[i].delay_time;
                     total_pickup += pax_out[i].pickup_time;
+                    if (pax_out[i].service_type == Mode::taxi) single_distance += pax_out[i].dist;
+                    else shared_distance += pax_out[i].dist;
                 }
                 if (pax_out[i].service_type == Mode::stay){
                     stay_demand += 1;
+                    stay_distance += pax_out[i].dist;
+                }
+                if (pax_out[i].service_type == Mode::exit){
+                    exit_demand += 1;
+                    exit_distance += pax_out[i].dist;
                 }
                 total_delay += pax_out[i].delay_time;
             }
@@ -226,7 +240,7 @@ int main(int argc, const char * argv[]) {
 
         std::cout<<algo_name<<","<<congestion_factor<<","<<demand_factor<<","<<supply_factor<<","<<p_rate<<","<<tax_congest<<","<<tax_demand<<",,";
         std::cout<<revenue/test_sample<<","<<cost/test_sample<<","<<tax/test_sample<<","<<profit/test_sample<<","<<total_pax/test_sample<<","<<pri_pax/test_sample<<","<<pool_pax/test_sample<<","<<float(total_pax)/fleet_size/test_sample<<","<<total_travel_time/fleet_size/test_sample<<","<<total_distance/fleet_size/test_sample<<",";
-        std::cout<<","<<sys_total_travel_time/sys_total_density<<","<<total_demand/test_sample<<","<<fulfill_demand/test_sample<<","<<stay_demand/test_sample<<","<<float(fulfill_demand + stay_demand)/float(total_demand)<<","<<ave_delay<<","<<ave_fulfill_delay<<","<<ave_pickup<<"\n";
+        std::cout<<","<<sys_total_travel_time/sys_total_density<<","<<sys_total_density/test_sample<<","<<total_demand/test_sample<<","<<fulfill_demand/test_sample<<","<<stay_demand/test_sample<<","<<float(fulfill_demand + stay_demand)/float(total_demand)<<","<<single_distance/std::max(pri_pax,1)<<","<<shared_distance/std::max(pool_pax,1)<<","<<stay_distance/std::max(stay_demand,1)<<","<<exit_distance/std::max(exit_demand,1)<<","<<ave_delay<<","<<ave_fulfill_delay<<","<<ave_pickup<<"\n";
 
         return 0;
     }

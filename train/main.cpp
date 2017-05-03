@@ -34,7 +34,7 @@ int main(int argc, const char * argv[]) {
         int i_tax_d = atoi(argv[10]);
 
         // initial scenario setting
-        std::vector<float> supply_factor_range = {0.75,1.0,1.25,1.5};
+        std::vector<float> supply_factor_range = {0.5,0.75,1.0,1.25};
         std::vector<float> demand_factor_range = {1.0,2.0,4.0};
         std::vector<float> p_rate_range = {0.4,0.6,0.8};
         std::vector<float> tax_c_range = {0.0,0.025};
@@ -64,7 +64,7 @@ int main(int argc, const char * argv[]) {
         float congestion_factor;
         int dynamic_travel_time_flag = dynamic_time_flag;
         float dynamic_travel_time_rate = demand_factor / 10.0;
-        float demand_scale_factor = 3.0;
+        float demand_scale_factor = 10.0;
         int fleet_size = 100 * supply_factor * int(demand_scale_factor);
         std::vector< std::vector<float> > ori_dist = load(data_path+"/o_d_c.csv",total_time,grid_size,demand_scale_factor);
         std::vector< std::vector<float> > des_dist = load(data_path+"/d_d_c.csv",total_time,grid_size,demand_scale_factor);
@@ -107,7 +107,7 @@ int main(int argc, const char * argv[]) {
         Scenario s = Scenario(scenario_setting);
 
         // define basic parameters
-        int train_iter = 30;
+        int train_iter = 20;
         int train_sample = 5;
         int n = 12;
         int lam = 12;
