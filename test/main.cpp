@@ -104,7 +104,7 @@ int main(int argc, const char * argv[]) {
                 algo_name = "Full";
                 break;
             case 2:
-                algo = Algorithm::pricing;
+                algo = Algorithm::pool;
                 algo_name = "Pool";
                 break;
             default:
